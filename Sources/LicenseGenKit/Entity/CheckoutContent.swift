@@ -1,6 +1,6 @@
 import Foundation
 
-struct CheckoutPackage {
+struct CheckoutContent: Hashable {
     var path: URL
     var name: String
 
@@ -10,7 +10,7 @@ struct CheckoutPackage {
     }
 }
 
-extension CheckoutPackage: Comparable {
+extension CheckoutContent: Comparable {
     static func < (lhs: Self, rhs: Self) -> Bool {
         lhs.name < rhs.name
     }

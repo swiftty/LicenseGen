@@ -1,0 +1,184 @@
+{
+    "name": "swift-argument-parser",
+    "products": [
+        {
+            "name": "ArgumentParser",
+            "settings": [],
+            "targets": [
+                "ArgumentParser"
+            ],
+            "type": {
+                "library": [
+                    "automatic"
+                ]
+            }
+        }
+    ],
+    "targets": [
+        {
+            "dependencies": [],
+            "exclude": [],
+            "name": "ArgumentParser",
+            "resources": [],
+            "settings": [],
+            "type": "regular"
+        },
+        {
+            "dependencies": [
+                {
+                    "byName": [
+                        "ArgumentParser",
+                        null
+                    ]
+                }
+            ],
+            "exclude": [],
+            "name": "ArgumentParserTestHelpers",
+            "resources": [],
+            "settings": [],
+            "type": "regular"
+        },
+        {
+            "dependencies": [
+                {
+                    "byName": [
+                        "ArgumentParser",
+                        null
+                    ]
+                }
+            ],
+            "exclude": [],
+            "name": "roll",
+            "path": "Examples/roll",
+            "resources": [],
+            "settings": [],
+            "type": "regular"
+        },
+        {
+            "dependencies": [
+                {
+                    "byName": [
+                        "ArgumentParser",
+                        null
+                    ]
+                }
+            ],
+            "exclude": [],
+            "name": "math",
+            "path": "Examples/math",
+            "resources": [],
+            "settings": [],
+            "type": "regular"
+        },
+        {
+            "dependencies": [
+                {
+                    "byName": [
+                        "ArgumentParser",
+                        null
+                    ]
+                }
+            ],
+            "exclude": [],
+            "name": "repeat",
+            "path": "Examples/repeat",
+            "resources": [],
+            "settings": [],
+            "type": "regular"
+        },
+        {
+            "dependencies": [
+                {
+                    "byName": [
+                        "ArgumentParser",
+                        null
+                    ]
+                }
+            ],
+            "exclude": [],
+            "name": "changelog-authors",
+            "path": "Tools/changelog-authors",
+            "resources": [],
+            "settings": [],
+            "type": "regular"
+        },
+        {
+            "dependencies": [
+                {
+                    "byName": [
+                        "ArgumentParser",
+                        null
+                    ]
+                },
+                {
+                    "byName": [
+                        "ArgumentParserTestHelpers",
+                        null
+                    ]
+                }
+            ],
+            "exclude": [],
+            "name": "ArgumentParserEndToEndTests",
+            "resources": [],
+            "settings": [],
+            "type": "test"
+        },
+        {
+            "dependencies": [
+                {
+                    "byName": [
+                        "ArgumentParser",
+                        null
+                    ]
+                },
+                {
+                    "byName": [
+                        "ArgumentParserTestHelpers",
+                        null
+                    ]
+                }
+            ],
+            "exclude": [],
+            "name": "ArgumentParserUnitTests",
+            "resources": [],
+            "settings": [],
+            "type": "test"
+        },
+        {
+            "dependencies": [
+                {
+                    "byName": [
+                        "ArgumentParserTestHelpers",
+                        null
+                    ]
+                }
+            ],
+            "exclude": [],
+            "name": "ArgumentParserExampleTests",
+            "resources": [],
+            "settings": [],
+            "type": "test"
+        },
+        {
+            "dependencies": [
+                {
+                    "byName": [
+                        "ArgumentParser",
+                        null
+                    ]
+                },
+                {
+                    "byName": [
+                        "ArgumentParserTestHelpers",
+                        null
+                    ]
+                }
+            ],
+            "exclude": [],
+            "name": "ArgumentParserPackageManagerTests",
+            "resources": [],
+            "settings": [],
+            "type": "test"
+        }
+    ]
+}

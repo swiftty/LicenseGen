@@ -5,6 +5,7 @@ import PackageDescription
 
 let package = Package(
     name: "LicenseGen",
+    platforms: [.macOS(.v10_15)],
     products: [
         .executable(name: "licensegen",
                     targets: ["licensegen"]),
@@ -27,6 +28,7 @@ let package = Package(
                 ]),
         .target(name: "LicenseGenKit",
                 dependencies: []),
+
         .testTarget(name: "LicenseGenKitTests",
                     dependencies: [
                         "LicenseGenKit",

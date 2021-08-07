@@ -1,0 +1,45 @@
+{
+    "name": "fixture",
+    "products": [
+        {
+            "name": "sample-exe",
+            "settings": [],
+            "targets": [
+                "sample"
+            ],
+            "type": {
+                "executable": null
+            }
+        },
+        {
+            "name": "sample-lib",
+            "settings": [],
+            "targets": [
+                "sample"
+            ],
+            "type": {
+                "library": [
+                    "automatic"
+                ]
+            }
+        }
+    ],
+    "targets": [
+        {
+            "dependencies": [
+                {
+                    "product": [
+                        "licensegen",
+                        "LicenseGen",
+                        null
+                    ]
+                }
+            ],
+            "exclude": [],
+            "name": "sample",
+            "resources": [],
+            "settings": [],
+            "type": "regular"
+        }
+    ]
+}

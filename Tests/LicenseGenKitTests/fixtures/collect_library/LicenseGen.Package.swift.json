@@ -1,0 +1,103 @@
+{
+    "name": "LicenseGen",
+    "products": [
+        {
+            "name": "licensegen",
+            "settings": [],
+            "targets": [
+                "licensegen"
+            ],
+            "type": {
+                "executable": null
+            }
+        },
+        {
+            "name": "LicenseGenKit",
+            "settings": [],
+            "targets": [
+                "LicenseGenKit"
+            ],
+            "type": {
+                "library": [
+                    "automatic"
+                ]
+            }
+        }
+    ],
+    "targets": [
+        {
+            "dependencies": [
+                {
+                    "byName": [
+                        "LicenseGenKit",
+                        null
+                    ]
+                },
+                {
+                    "product": [
+                        "ArgumentParser",
+                        "swift-argument-parser",
+                        null
+                    ]
+                }
+            ],
+            "exclude": [],
+            "name": "licensegen",
+            "resources": [],
+            "settings": [],
+            "type": "regular"
+        },
+        {
+            "dependencies": [],
+            "exclude": [],
+            "name": "LicenseGenKit",
+            "resources": [],
+            "settings": [],
+            "type": "regular"
+        },
+        {
+            "dependencies": [
+                {
+                    "byName": [
+                        "licensegen",
+                        null
+                    ]
+                }
+            ],
+            "exclude": [],
+            "name": "licensegenTests",
+            "resources": [],
+            "settings": [],
+            "type": "test"
+        },
+        {
+            "dependencies": [
+                {
+                    "byName": [
+                        "LicenseGenKit",
+                        null
+                    ]
+                },
+                {
+                    "product": [
+                        "SwiftToolsSupport-auto",
+                        "swift-tools-support-core",
+                        null
+                    ]
+                },
+                {
+                    "product": [
+                        "TSCTestSupport",
+                        "swift-tools-support-core",
+                        null
+                    ]
+                }
+            ],
+            "exclude": [],
+            "name": "LicenseGenKitTests",
+            "resources": [],
+            "settings": [],
+            "type": "test"
+        }
+    ]
+}
