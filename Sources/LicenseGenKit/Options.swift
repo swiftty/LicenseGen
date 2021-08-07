@@ -1,9 +1,15 @@
 import Foundation
 
 public struct Options {
-    public var checkoutsPath: URL
+    public var checkoutsPaths: [URL]
 
-    public init(checkoutsPath: URL) {
-        self.checkoutsPath = checkoutsPath
+    public var resolvedPaths: [URL]
+
+    public init(
+        checkoutsPaths: [URL],
+        resolvedPaths: [URL] = []
+    ) {
+        self.checkoutsPaths = checkoutsPaths
+        self.resolvedPaths = resolvedPaths
     }
 }

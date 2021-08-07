@@ -2,17 +2,25 @@ import Foundation
 import ArgumentParser
 import LicenseGenKit
 
-struct RuntimeError: Error, CustomStringConvertible {
-    var description: String
-}
-
 struct LicenseGenCommand: ParsableCommand {
     @Option(name: .long,
             help: "You can specify custom spm checkouts path. Default: ${BUILD_DIR}/../../SourcePackages/checkouts",
             completion: .directory)
     var checkoutsPath: String?
 
+    @Option(name: .long,
+            parsing: .upToNextOption,
+            help: "",
+            completion: .file())
+    var resolvedPaths: [String]
+
     mutating func run() throws {
+        let options = Options(checkoutsPaths: try extractCheckoutPaths(),
+                              resolvedPaths: resolvedPaths.map(URL.init(fileURLWithPath:)))
+        try LicenseGen().run(with: options)
+    }
+
+    private func extractCheckoutPaths() throws -> [URL] {
         let checkoutsURL: URL
         if let checkoutsPath = checkoutsPath {
             checkoutsURL = URL(fileURLWithPath: checkoutsPath)
@@ -23,12 +31,9 @@ struct LicenseGenCommand: ParsableCommand {
                 .appendingPathComponent("SourcePackages")
                 .appendingPathComponent("checkouts")
         } else {
-            throw RuntimeError(description: """
-            missing BUILD_DIR
-            """)
+            throw ValidationError("missing BUILD_DIR")
         }
-        let options = Options(checkoutsPath: checkoutsURL)
-        try LicenseGen().run(with: options)
+        return [checkoutsURL]
     }
 }
 
