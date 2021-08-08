@@ -3,13 +3,13 @@ import Foundation
 public struct Options {
     public var checkoutsPaths: [URL]
 
-    public var resolvedPaths: [URL]
+    public var packagePaths: [URL]
 
     public init(
         checkoutsPaths: [URL],
-        resolvedPaths: [URL] = []
+        packagePaths: [URL] = []
     ) {
         self.checkoutsPaths = checkoutsPaths
-        self.resolvedPaths = resolvedPaths
+        self.packagePaths = packagePaths
     }
 }

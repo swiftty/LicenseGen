@@ -8,15 +8,16 @@ struct LicenseGenCommand: ParsableCommand {
             completion: .directory)
     var checkoutsPath: String?
 
-    @Option(name: .long,
+    @Option(wrappedValue: [],
+            name: .long,
             parsing: .upToNextOption,
             help: "",
             completion: .file())
-    var resolvedPaths: [String]
+    var packagePaths: [String]
 
     mutating func run() throws {
         let options = Options(checkoutsPaths: try extractCheckoutPaths(),
-                              resolvedPaths: resolvedPaths.map(URL.init(fileURLWithPath:)))
+                              packagePaths: packagePaths.map(URL.init(fileURLWithPath:)))
         try LicenseGen().run(with: options)
     }
 

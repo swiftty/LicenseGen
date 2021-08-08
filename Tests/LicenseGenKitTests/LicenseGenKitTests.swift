@@ -5,14 +5,26 @@ import TSCTestSupport
 
 extension InMemoryFileSystem: LicenseGenKit.FileIO {
     public func dumpPackage(at url: URL) throws -> Data {
-        try readFileContents(.init(url.path)).withData { data in
-            data
+        try readFileContents(.init(url.appendingPathComponent("Package.swift").path)).withData { data in
+            Data(data)
         }
     }
 
     public func getDirectoryContents(at url: URL) throws -> [URL] {
         try getDirectoryContents(AbsolutePath(url.path))
-            .map(URL.init(fileURLWithPath:))
+            .map(url.appendingPathComponent)
+    }
+
+    public func readContents(at url: URL) throws -> String {
+        try readFileContents(.init(url.path)).validDescription ?? ""
+    }
+
+    public func isDirectory(at url: URL) -> Bool {
+        isDirectory(.init(url.path))
+    }
+
+    public func isExists(at url: URL) -> Bool {
+        exists(.init(url.path))
     }
 }
 
@@ -29,7 +41,7 @@ final class LicenseGenKitTests: XCTestCase {
             URL(fileURLWithPath: "/checkoutsA"),
             URL(fileURLWithPath: "/checkoutsB")
         ]
-        let contents = try LicenseGen().findCheckoutContents(in: checkoutsPaths, using: fs)
+        let contents = try LicenseGen.findCheckoutContents(in: checkoutsPaths, using: fs)
 
         XCTAssertEqual(contents.map(\.name), [
             "PackageA",
@@ -53,7 +65,7 @@ final class LicenseGenKitTests: XCTestCase {
         ]
 
         let rootPackagePath = URL(fileURLWithPath: "/")
-        let results = try LicenseGen().collectLibraries(for: rootPackagePath, with: checkouts, using: fs)
+        let results = try LicenseGen.collectLibraries(for: rootPackagePath, with: checkouts, using: fs)
 
         XCTAssertEqual(Set(results.map(\.name)), [
             "licensegen",
