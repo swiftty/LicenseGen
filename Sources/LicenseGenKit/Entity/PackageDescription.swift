@@ -13,7 +13,7 @@ struct PackageDescription: Decodable {
         var name: String
         var dependencies: [Dependency]
     }
-    enum Dependency: Decodable, Comparable {
+    enum Dependency: Decodable, Equatable, Comparable {
         case target(name: String)
         case product(name: String, package: String?)
         case byName(String)

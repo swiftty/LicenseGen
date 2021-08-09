@@ -91,6 +91,14 @@ public struct LicenseGen {
                 for dep in target.dependencies {
                     switch dep {
                     case .byName(let name), .target(let name):
+                        if dep == .byName(name),
+                           let checkout = checkouts[name.lowercased()],
+                           packages[checkout.path] == nil {
+
+                            libraries.append(.init(checkout: checkout, name: name))
+                            try dumpPackage(path: checkout.path, only: [name])
+                            continue
+                        }
                         for product in package.products where product.targets.contains(name) {
                             guard let checkout = checkouts[package.name.lowercased()] else {
                                 if packages[rootPackagePath]?.targets.map(\.name).contains(name) ?? false {
@@ -137,7 +145,7 @@ public struct LicenseGen {
         }
         logger?.critical("""
         missing license: \(library.name), \
-        location \(library.checkout.path)/[\(candidates.joined(separator: " | "))]
+        location \(library.checkout.path)(\(candidates.joined(separator: " | ")))
         """)
         return nil
     }

@@ -16,6 +16,9 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-argument-parser",
                  from: "0.4.0"),
 
+        .package(url: "https://github.com/jpsim/Yams.git",
+                 from: "4.0.0"),
+
         .package(url: "https://github.com/apple/swift-log.git",
                  from: "1.0.0"),
 
@@ -26,6 +29,7 @@ let package = Package(
         .target(name: "licensegen",
                 dependencies: [
                     "LicenseGenKit",
+                    "Yams",
                     .product(name: "ArgumentParser",
                              package: "swift-argument-parser")
                 ]),
