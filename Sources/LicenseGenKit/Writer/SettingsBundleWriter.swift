@@ -42,7 +42,7 @@ struct SettingsBundleWriter: OutputWriter {
             }
 
             if io.isExists(at: outputPath) {
-                logger?.info("remove current \(prefix)")
+                logger?.info("removing... current \(prefix)")
                 if case let path = indexFile(in: outputPath), io.isExists(at: path) {
                     try io.remove(at: path)
                 }
@@ -50,13 +50,19 @@ struct SettingsBundleWriter: OutputWriter {
                     try io.remove(at: path)
                 }
             } else {
-                logger?.info("create output")
+                logger?.info("creating... \(outputPath.lastPathComponent)")
                 try io.createDirectory(at: outputPath)
             }
 
             logger?.info("finalizing...")
             try io.move(indexFile(in: tmp), to: indexFile(in: outputPath))
             try io.move(childDirectory(in: tmp), to: childDirectory(in: outputPath))
+
+            do {
+                try io.remove(at: tmp)
+            } catch {
+                logger?.warning("removing tmp directory. reason: \(error)")
+            }
         } else {
             logger?.info("/// \(prefix).plist")
             print(String(data: index, encoding: .utf8) ?? "")
