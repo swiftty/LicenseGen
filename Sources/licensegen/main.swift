@@ -113,26 +113,41 @@ struct LicenseGenCommand: ParsableCommand {
 }
 
 extension LicenseGenCommand {
-    struct Config: Decodable {
+    struct Config {
         var ignore: Ignore
         var licensePath: String?
 
-        private enum CodingKeys: String, CodingKey {
-            case ignore
-            case licensePath = "license_path"
-        }
-
-        struct Ignore: Decodable {
+        struct Ignore {
             var value: Bool
-            init(from decoder: Decoder) throws {
-                let container = try decoder.singleValueContainer()
-                if container.decodeNil() {
-                    value = true
-                    return
-                }
-                value = try container.decode(Bool.self)
-            }
         }
+    }
+}
+
+extension LicenseGenCommand.Config: Decodable {
+    private enum CodingKeys: String, CodingKey {
+        case ignore
+        case licensePath = "license_path"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        do {
+            ignore = try container.decode(Ignore.self, forKey: .ignore)
+        } catch DecodingError.keyNotFound(let key, _) where key.stringValue == "ignore" {
+            ignore = Ignore(value: false)
+        }
+        licensePath = try container.decodeIfPresent(String.self, forKey: .licensePath)
+    }
+}
+
+extension LicenseGenCommand.Config.Ignore: Decodable {
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if container.decodeNil() {
+            value = true
+            return
+        }
+        value = try container.decode(Bool.self)
     }
 }
 

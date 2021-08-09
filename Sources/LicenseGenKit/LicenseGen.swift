@@ -4,6 +4,7 @@ import Logging
 public struct LicenseGen {
     public enum Error: Swift.Error {
         case invalidPath(URL)
+        case missingLicense(String)
     }
 
     private let fileIO = DefaultFileIO()
@@ -17,19 +18,21 @@ public struct LicenseGen {
         try Self.validateOptions(options, using: fileIO)
 
         let checkouts = try Self.findCheckoutContents(in: options.checkoutsPaths, using: fileIO)
-        let licenses: [License]
+        let libraries: [Library]
         if !options.packagePaths.isEmpty {
-            licenses = try options.packagePaths
-                .flatMap { path in
-                    try Self.collectLibraries(for: path, with: checkouts, logger: logger, using: fileIO)
-                }
-                .compactMap {
-                    try Self.generateLicense(for: $0, logger: logger, using: fileIO)
-                }
-        } else {
-            licenses = try checkouts.compactMap {
-                try Self.generateLicense(for: $0, logger: logger, using: fileIO)
+            libraries = try options.packagePaths.flatMap { path in
+                try Self.collectLibraries(for: path, with: checkouts, logger: logger, using: fileIO)
             }
+        } else {
+            libraries = checkouts
+        }
+
+        var modifiers = options.config?.modifiers
+        let licenses = try libraries.compactMap {
+            try Self.generateLicense(for: $0, modifiers: &modifiers, logger: logger, using: fileIO)
+        }
+        modifiers?.keys.forEach { key in
+            logger.warning(#"Unused settings found: "\#(key)""#)
         }
 
         let writer: OutputWriter = {
@@ -134,8 +137,25 @@ public struct LicenseGen {
         return libraries.uniqued()
     }
 
-    static func generateLicense(for library: Library, logger: Logger? = nil, using io: FileIO) throws -> License? {
-        let candidates = ["LICENSE", "LICENSE.md", "LICENSE.txt"]
+    static func generateLicense(for library: Library,
+                                modifiers: inout [String: Options.Config.Setting]?,
+                                logger: Logger? = nil,
+                                using io: FileIO) throws -> License? {
+        let missingAsError: Bool
+        let candidates: [String]
+        defer { modifiers?[library.name] = nil }
+        switch modifiers?[library.name] {
+        case .ignore:
+            return nil
+
+        case .licensePath(let path):
+            candidates = [path]
+            missingAsError = true
+
+        case nil:
+            candidates = ["LICENSE", "LICENSE.md", "LICENSE.txt"]
+            missingAsError = false
+        }
 
         for c in candidates {
             let path = library.checkout.path.appendingPathComponent(c)
@@ -143,10 +163,19 @@ public struct LicenseGen {
             let content = try io.readContents(at: path)
             return License(source: library, name: library.name, content: .init(version: nil, body: content))
         }
+
+        let candidateMessage = candidates.count > 1
+            ? "(\(candidates.joined(separator: " | ")))"
+            : "\(candidates.joined())"
         logger?.critical("""
         missing license: \(library.name), \
-        location \(library.checkout.path)(\(candidates.joined(separator: " | ")))
+        location \(library.checkout.path)\(candidateMessage)
         """)
+
+        if missingAsError {
+            throw Error.missingLicense("\(library.checkout.path)\(candidateMessage)")
+        }
+
         return nil
     }
 }
