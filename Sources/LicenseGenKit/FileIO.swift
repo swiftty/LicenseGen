@@ -74,7 +74,7 @@ struct DefaultFileIO: FileIO {
         process.standardOutput = pipe
         process.currentDirectoryURL = path
 
-        process.launch()
+        try process.run()
         process.waitUntilExit()
 
         return pipe.fileHandleForReading.readDataToEndOfFile()

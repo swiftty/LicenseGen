@@ -2,3 +2,6 @@ included:
   - Sources
   - Tests
   - Package.swift
+
+excluded:
+  - Tests/licensegenTests/fixtures/.build

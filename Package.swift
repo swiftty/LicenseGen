@@ -38,6 +38,9 @@ let package = Package(
                     .product(name: "Logging", package: "swift-log")
                 ]),
 
+        .testTarget(name: "licensegenTests",
+                    dependencies: ["licensegen"],
+                    resources: [.process("fixtures")]),
         .testTarget(name: "LicenseGenKitTests",
                     dependencies: [
                         "LicenseGenKit",
