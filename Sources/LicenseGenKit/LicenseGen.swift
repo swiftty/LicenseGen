@@ -76,7 +76,7 @@ public struct LicenseGen {
         var packages: [URL: PackageDescription] = [:]
         var libraries: [SpecifiedLibrary] = []
 
-        func dumpPackage(path: URL, only onlyTargets: Set<String>? = nil) throws {
+        func dumpPackage(path: URL, for specifiedProduct: String? = nil) throws {
             let package: PackageDescription
             if let p = packages[path] {
                 package = p
@@ -99,7 +99,7 @@ public struct LicenseGen {
                            packages[checkout.path] == nil {
 
                             libraries.append(.init(checkout: checkout, name: name))
-                            try dumpPackage(path: checkout.path, only: [name])
+                            try dumpPackage(path: checkout.path, for: name)
                             continue
                         }
                         for product in package.products where product.targets.contains(name) {
@@ -123,13 +123,15 @@ public struct LicenseGen {
 
                         libraries.append(.init(checkout: checkout, name: name))
 
-                        try dumpPackage(path: checkout.path, only: [name])
+                        try dumpPackage(path: checkout.path, for: name)
                     }
                 }
             }
 
-            for target in Set(package.products.flatMap(\.targets)) where onlyTargets?.contains(target) ?? true {
-                try collectFromDependencies(for: target)
+            for p in package.products where specifiedProduct.map({ $0 == p.name }) ?? true {
+                for t in p.targets {
+                    try collectFromDependencies(for: t)
+                }
             }
         }
 
