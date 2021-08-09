@@ -1,11 +1,17 @@
 import Foundation
 
 public struct LicenseGen {
+    public enum Error: Swift.Error {
+        case invalidPath(URL)
+    }
+
     private let fileIO = DefaultFileIO()
 
     public init() {}
 
     public func run(with options: Options) throws {
+        try Self.validateOptions(options, using: fileIO)
+
         let checkouts = try Self.findCheckoutContents(in: options.checkoutsPaths, using: fileIO)
         let licenses: [License]
         if !options.packagePaths.isEmpty {
@@ -21,10 +27,22 @@ public struct LicenseGen {
                 try Self.generateLicense(for: $0, using: fileIO)
             }
         }
-        print(licenses.sorted().map {
-            ($0.name,
-             $0.content?.body.prefix(20))
-        })
+
+        let writer: OutputWriter = {
+            switch options.outputFormat {
+            case .settingsBundle(let prefix):
+                return SettingsBundleWriter(prefix: prefix)
+            }
+        }()
+        try writer.write(licenses, to: options.outputPath)
+    }
+
+    static func validateOptions(_ options: Options, using io: FileIO) throws {
+        for path in options.checkoutsPaths + options.packagePaths {
+            if !io.isDirectory(at: path) {
+                throw Error.invalidPath(path)
+            }
+        }
     }
 
     static func findCheckoutContents(in checkoutsPaths: [URL],

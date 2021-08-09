@@ -36,6 +36,7 @@ let package = Package(
                                  package: "swift-tools-support-core"),
                         .product(name: "TSCTestSupport",
                                  package: "swift-tools-support-core")
-                    ])
+                    ],
+                    resources: [.process("fixtures")])
     ]
 )
