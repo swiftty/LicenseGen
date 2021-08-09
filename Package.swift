@@ -16,6 +16,9 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-argument-parser",
                  from: "0.4.0"),
 
+        .package(url: "https://github.com/apple/swift-log.git",
+                 from: "1.0.0"),
+
         .package(url: "https://github.com/apple/swift-tools-support-core.git",
                  from: "0.2.0")
     ],
@@ -27,7 +30,9 @@ let package = Package(
                              package: "swift-argument-parser")
                 ]),
         .target(name: "LicenseGenKit",
-                dependencies: []),
+                dependencies: [
+                    .product(name: "Logging", package: "swift-log")
+                ]),
 
         .testTarget(name: "LicenseGenKitTests",
                     dependencies: [

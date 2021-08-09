@@ -1,5 +1,6 @@
 import Foundation
 import ArgumentParser
+import Logging
 import LicenseGenKit
 
 struct LicenseGenCommand: ParsableCommand {
@@ -42,7 +43,10 @@ struct LicenseGenCommand: ParsableCommand {
                               packagePaths: packagePaths.map(URL.init(fileURLWithPath:)),
                               outputPath: outputPath.map(URL.init(fileURLWithPath:)),
                               outputFormat: try extractOutputFormat())
-        try LicenseGen().run(with: options)
+
+        LoggingSystem.bootstrap(StreamLogHandler.standardError)
+        let logger = Logger(label: "lisencegen")
+        try LicenseGen(logger: logger).run(with: options)
     }
 
     private func extractCheckoutPaths() throws -> [URL] {

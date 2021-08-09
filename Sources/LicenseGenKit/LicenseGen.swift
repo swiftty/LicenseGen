@@ -1,4 +1,5 @@
 import Foundation
+import Logging
 
 public struct LicenseGen {
     public enum Error: Swift.Error {
@@ -6,8 +7,11 @@ public struct LicenseGen {
     }
 
     private let fileIO = DefaultFileIO()
+    private let logger: Logger
 
-    public init() {}
+    public init(logger: Logger) {
+        self.logger = logger
+    }
 
     public func run(with options: Options) throws {
         try Self.validateOptions(options, using: fileIO)
@@ -17,14 +21,14 @@ public struct LicenseGen {
         if !options.packagePaths.isEmpty {
             licenses = try options.packagePaths
                 .flatMap { path in
-                    try Self.collectLibraries(for: path, with: checkouts, using: fileIO)
+                    try Self.collectLibraries(for: path, with: checkouts, logger: logger, using: fileIO)
                 }
                 .map {
-                    try Self.generateLicense(for: $0, using: fileIO)
+                    try Self.generateLicense(for: $0, logger: logger, using: fileIO)
                 }
         } else {
             licenses = try checkouts.map {
-                try Self.generateLicense(for: $0, using: fileIO)
+                try Self.generateLicense(for: $0, logger: logger, using: fileIO)
             }
         }
 
@@ -58,6 +62,7 @@ public struct LicenseGen {
 
     static func collectLibraries(for rootPackagePath: URL,
                                  with checkouts: [CheckoutContent],
+                                 logger: Logger? = nil,
                                  using io: FileIO) throws -> [Library] {
         let checkouts = Dictionary(uniqueKeysWithValues: checkouts.map {
             ($0.name.lowercased(), $0)
@@ -85,14 +90,23 @@ public struct LicenseGen {
                     switch dep {
                     case .byName(let name), .target(let name):
                         for product in package.products where product.targets.contains(name) {
-                            guard let checkout = checkouts[package.name.lowercased()] else { continue }
+                            guard let checkout = checkouts[package.name.lowercased()] else {
+                                if packages[rootPackagePath]?.targets.map(\.name).contains(name) ?? false {
+                                    continue
+                                }
+                                logger?.warning("missing checkout: \(package.name)")
+                                continue
+                            }
                             libraries.append(.init(checkout: checkout, name: product.name))
                         }
                         try collectFromDependencies(for: name)
 
                     case .product(let name, let packageName):
                         let packageName = packageName ?? name
-                        guard let checkout = checkouts[packageName.lowercased()] else { return }
+                        guard let checkout = checkouts[packageName.lowercased()] else {
+                            logger?.warning("missing checkout: \(packageName)")
+                            return
+                        }
 
                         libraries.append(.init(checkout: checkout, name: name))
 
@@ -110,7 +124,7 @@ public struct LicenseGen {
         return libraries.uniqued()
     }
 
-    static func generateLicense(for library: Library, using io: FileIO) throws -> License {
+    static func generateLicense(for library: Library, logger: Logger? = nil, using io: FileIO) throws -> License {
         let candidates = ["LICENSE", "LICENSE.md", "LICENSE.txt"]
 
         for c in candidates {
@@ -119,6 +133,10 @@ public struct LicenseGen {
             let content = try io.readContents(at: path)
             return License(source: library, name: library.name, content: .init(version: nil, body: content))
         }
+        logger?.critical("""
+        missing license: \(library.name), \
+        location \(library.checkout.path)/[\(candidates.joined(separator: " | "))]
+        """)
         return License(source: library, name: library.name, content: nil)
     }
 }
