@@ -62,4 +62,6 @@ private func prepareCheckouts(at path: URL) throws {
 
     try process.run()
     process.waitUntilExit()
+
+    XCTAssertEqual(process.terminationStatus, 0)
 }

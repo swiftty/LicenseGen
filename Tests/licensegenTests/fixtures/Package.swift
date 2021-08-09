@@ -13,16 +13,24 @@ let package = Package(
                  targets: ["example"])
     ],
     dependencies: [
-        .package(url: "https://github.com/firebase/firebase-ios-sdk.git",
-                 from: "8.5.0")
+        .package(name: "Firebase",
+                 url: "https://github.com/firebase/firebase-ios-sdk.git",
+                 from: "8.5.0"),
+
+        .package(url: "https://github.com/ReactiveX/RxSwift.git",
+                 from: "6.2.0")
     ],
     targets: [
         .target(name: "example",
                 dependencies: [
                     .product(name: "FirebaseAnalytics",
-                             package: "firebase-ios-sdk"),
+                             package: "Firebase"),
                     .product(name: "FirebaseAppDistribution",
-                             package: "firebase-ios-sdk")
+                             package: "Firebase"),
+
+                    "RxSwift",
+                    .product(name: "RxCocoa",
+                             package: "RxSwift")
                 ])
     ]
 )

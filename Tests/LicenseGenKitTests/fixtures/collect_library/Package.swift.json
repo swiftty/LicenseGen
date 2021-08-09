@@ -24,6 +24,16 @@
             }
         }
     ],
+    "dependencies": [
+        {
+            "name": "LicenseGen",
+            "productFilter": null,
+            "requirement": {
+                "localPackage": null
+            },
+            "url": "/foo/bar/swiftty/LicenseGen"
+        }
+    ],
     "targets": [
         {
             "dependencies": [

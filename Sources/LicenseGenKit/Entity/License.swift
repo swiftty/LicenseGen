@@ -14,7 +14,7 @@ struct License {
 extension License: Equatable, Comparable {
     static func < (lhs: License, rhs: License) -> Bool {
         lhs.name < rhs.name
-            && (lhs.content.version ?? "")
+            || (lhs.content.version ?? "")
             .compare(rhs.content.version ?? "", options: .numeric) == .orderedDescending
     }
 

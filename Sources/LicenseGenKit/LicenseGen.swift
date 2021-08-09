@@ -5,6 +5,7 @@ public struct LicenseGen {
     public enum Error: Swift.Error {
         case invalidPath(URL)
         case missingLicense(String)
+        case missingLibrary([String])
     }
 
     private let fileIO = DefaultFileIO()
@@ -73,23 +74,42 @@ public struct LicenseGen {
             ($0.name.lowercased(), $0)
         })
 
-        var packages: [URL: PackageDescription] = [:]
-        var libraries: [SpecifiedLibrary] = []
+        struct PackageInfo {
+            var description: PackageDescription
+            var dirname: String
+        }
+        struct CheckKey: Hashable {
+            var packageName: String
+            var name: String
+        }
+
+        var packages: [URL: PackageInfo] = [:]
+        var libraries: Set<SpecifiedLibrary> = []
+        var collectedTargets: Set<CheckKey> = []
+        var missingProducts: Set<CheckKey> = []
 
         func dumpPackage(path: URL, for specifiedProduct: String? = nil) throws {
-            let package: PackageDescription
+            let package: PackageInfo
             if let p = packages[path] {
                 package = p
             } else {
                 let data = try io.dumpPackage(at: path)
-                package = try JSONDecoder().decode(PackageDescription.self, from: data)
+                let desc = try JSONDecoder().decode(PackageDescription.self, from: data)
+                package = .init(description: desc, dirname: path.lastPathComponent)
                 packages[path] = package
             }
 
             func collectFromDependencies(for targetName: String) throws {
-                guard let target = package.targets.first(where: { $0.name == targetName }) else {
+                let key = CheckKey(packageName: package.description.name, name: targetName)
+                if collectedTargets.contains(key) {
+                    missingProducts.remove(key)
                     return
                 }
+                collectedTargets.insert(key)
+                guard let target = package.description.targets.first(where: { $0.name == targetName }) else {
+                    return
+                }
+                missingProducts.remove(key)
 
                 for dep in target.dependencies {
                     switch dep {
@@ -98,37 +118,45 @@ public struct LicenseGen {
                            let checkout = checkouts[name.lowercased()],
                            packages[checkout.path] == nil {
 
-                            libraries.append(.init(checkout: checkout, name: name))
+                            libraries.insert(.init(checkout: checkout, name: name))
                             try dumpPackage(path: checkout.path, for: name)
                             continue
                         }
-                        for product in package.products where product.targets.contains(name) {
-                            guard let checkout = checkouts[package.name.lowercased()] else {
-                                if packages[rootPackagePath]?.targets.map(\.name).contains(name) ?? false {
+                        missingProducts.insert(.init(packageName: package.description.name, name: name))
+                        for product in package.description.products where product.targets.contains(name) {
+                            guard let checkout = checkouts[package.dirname.lowercased()] else {
+                                if packages[rootPackagePath]?.description.targets.map(\.name).contains(name) ?? false {
                                     continue
                                 }
-                                logger?.warning("missing checkout: \(package.name)")
+                                logger?.warning("missing checkout: \(package.description.name)")
                                 continue
                             }
-                            libraries.append(.init(checkout: checkout, name: product.name))
+                            missingProducts.remove(.init(packageName: package.description.name, name: name))
+                            libraries.insert(.init(checkout: checkout, name: product.name))
                         }
                         try collectFromDependencies(for: name)
 
                     case .product(let name, let packageName):
                         let packageName = packageName ?? name
-                        guard let checkout = checkouts[packageName.lowercased()] else {
+                        var dirname: String {
+                            guard let dep = package.description.dependencies
+                                    .first(where: { $0.name == packageName }) else { return packageName }
+                            return dep.url.deletingPathExtension().lastPathComponent
+                        }
+                        guard let checkout = checkouts[dirname.lowercased()] else {
                             logger?.warning("missing checkout: \(packageName)")
                             return
                         }
 
-                        libraries.append(.init(checkout: checkout, name: name))
+                        missingProducts.remove(.init(packageName: packageName, name: name))
+                        libraries.insert(.init(checkout: checkout, name: name))
 
                         try dumpPackage(path: checkout.path, for: name)
                     }
                 }
             }
 
-            for p in package.products where specifiedProduct.map({ $0 == p.name }) ?? true {
+            for p in package.description.products where specifiedProduct.map({ $0 == p.name }) ?? true {
                 for t in p.targets {
                     try collectFromDependencies(for: t)
                 }
@@ -136,7 +164,13 @@ public struct LicenseGen {
         }
 
         try dumpPackage(path: rootPackagePath)
-        return libraries.uniqued()
+
+        if !missingProducts.isEmpty {
+            let libs = missingProducts.map(\.name).sorted()
+            logger?.error("missing library found: \(libs.joined(separator: ", "))")
+            throw Error.missingLibrary(libs)
+        }
+        return Array(libraries)
     }
 
     static func generateLicense(for library: Library,
