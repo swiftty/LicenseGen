@@ -15,8 +15,29 @@ extension InMemoryFileSystem: LicenseGenKit.FileIO {
             .map(url.appendingPathComponent)
     }
 
+    public func createDirectory(at url: URL) throws {
+        try createDirectory(.init(url.path), recursive: true)
+    }
+
+    public func createTmpDirectory() throws -> URL {
+        try createDirectory(.init("/tmp"))
+        return URL(fileURLWithPath: "/tmp")
+    }
+
+    public func remove(at url: URL) throws {
+        try removeFileTree(.init(url.path))
+    }
+
+    public func move(_ from: URL, to: URL) throws {
+        try move(from: .init(from.path), to: .init(to.path))
+    }
+
     public func readContents(at url: URL) throws -> String {
         try readFileContents(.init(url.path)).validDescription ?? ""
+    }
+
+    public func writeContents(_ data: Data, to url: URL) throws {
+        try writeFileContents(.init(url.path), bytes: .init(data))
     }
 
     public func isDirectory(at url: URL) -> Bool {

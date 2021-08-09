@@ -23,11 +23,11 @@ public struct LicenseGen {
                 .flatMap { path in
                     try Self.collectLibraries(for: path, with: checkouts, logger: logger, using: fileIO)
                 }
-                .map {
+                .compactMap {
                     try Self.generateLicense(for: $0, logger: logger, using: fileIO)
                 }
         } else {
-            licenses = try checkouts.map {
+            licenses = try checkouts.compactMap {
                 try Self.generateLicense(for: $0, logger: logger, using: fileIO)
             }
         }
@@ -38,7 +38,9 @@ public struct LicenseGen {
                 return SettingsBundleWriter(prefix: prefix)
             }
         }()
-        try writer.write(licenses, to: options.outputPath)
+        try writer.write(licenses.sorted(), to: options.outputPath, logger: logger, using: fileIO)
+
+        logger.info("done!")
     }
 
     static func validateOptions(_ options: Options, using io: FileIO) throws {
@@ -124,7 +126,7 @@ public struct LicenseGen {
         return libraries.uniqued()
     }
 
-    static func generateLicense(for library: Library, logger: Logger? = nil, using io: FileIO) throws -> License {
+    static func generateLicense(for library: Library, logger: Logger? = nil, using io: FileIO) throws -> License? {
         let candidates = ["LICENSE", "LICENSE.md", "LICENSE.txt"]
 
         for c in candidates {
@@ -137,6 +139,6 @@ public struct LicenseGen {
         missing license: \(library.name), \
         location \(library.checkout.path)/[\(candidates.joined(separator: " | "))]
         """)
-        return License(source: library, name: library.name, content: nil)
+        return nil
     }
 }
