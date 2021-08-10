@@ -8,11 +8,17 @@ on:
 
 jobs:
   build:
-
-    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v2
+    - uses: fwal/setup-swift@v1
+      with:
+        swift-version: '5.4'
     - name: Cache package build dir
       uses: actions/cache@v2.1.6
       with:
