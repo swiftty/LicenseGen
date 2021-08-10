@@ -4,14 +4,14 @@ import Foundation
 final class LicensegenTests: XCTestCase {
 
     func testLicensegen() throws {
+        // Mac Catalyst won't have `Process`, but it is supported for executables.
+        #if !targetEnvironment(macCatalyst)
+
         let workingDir = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .appendingPathComponent("fixtures")
 
         try prepareCheckouts(at: workingDir)
-
-        // Mac Catalyst won't have `Process`, but it is supported for executables.
-        #if !targetEnvironment(macCatalyst)
 
         let licensegen = productsDirectory.appendingPathComponent("licensegen")
 
@@ -37,6 +37,43 @@ final class LicensegenTests: XCTestCase {
         process.waitUntilExit()
 
         XCTAssertEqual(process.terminationStatus, 0)
+
+        let outputPath = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .appendingPathComponent("fixtures")
+            .appendingPathComponent("Settings.bundle")
+
+        struct Item: Decodable {
+            var file: String?
+
+            private enum CodingKeys: String, CodingKey {
+                case file = "File"
+            }
+        }
+
+        let items = try PropertyListDecoder()
+            .decode([String: [Item]].self,
+                    from: Data(contentsOf: outputPath
+                                .appendingPathComponent("example.plist")))
+            .first?.value.dropFirst()
+
+        let fs = FileManager.default
+        let contents = try fs.contentsOfDirectory(
+            atPath: outputPath.appendingPathComponent("example").path)
+
+        XCTAssertFalse(contents.isEmpty)
+
+        XCTAssertEqual(
+            Set(contents),
+            Set(
+               items?
+                .compactMap(\.file)
+                .map {
+                    $0.replacingOccurrences(of: "example/", with: "") + ".plist"
+                } ?? []
+            )
+        )
+
         #endif
     }
 
