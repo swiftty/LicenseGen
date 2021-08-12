@@ -19,6 +19,11 @@ jobs:
     - uses: fwal/setup-swift@v1
       with:
         swift-version: '5.4'
+      if: ${{ startsWith(runner.os, 'Linux') }}
+    - uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: '12.4'
+      if: ${{ startsWith(runner.os, 'macos') }}
     - name: Cache package build dir
       uses: actions/cache@v2.1.6
       with:
