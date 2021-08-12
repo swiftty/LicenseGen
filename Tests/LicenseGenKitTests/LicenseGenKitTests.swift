@@ -4,6 +4,10 @@ import TSCBasic
 import TSCTestSupport
 
 extension InMemoryFileSystem: LicenseGenKit.FileIO {
+    public func packageVersion() throws -> String {
+        "5.3.0"
+    }
+
     public func dumpPackage(at url: URL) throws -> Data {
         try readFileContents(.init(url.appendingPathComponent("Package.swift").path)).withData { data in
             Data(data)
@@ -86,7 +90,10 @@ final class LicenseGenKitTests: XCTestCase {
         ]
 
         let rootPackagePath = URL(fileURLWithPath: "/")
-        let results = try LicenseGen.collectLibraries(for: rootPackagePath, with: checkouts, using: fs)
+        let results = try LicenseGen.collectLibraries(for: rootPackagePath,
+                                                      with: checkouts,
+                                                      version: .init(rawValue: "5.3.0"),
+                                                      using: fs)
 
         XCTAssertEqual(Set(results.map(\.name)), [
             "licensegen",

@@ -17,6 +17,10 @@ extension Options.Config.Setting: Equatable {
 }
 
 extension InMemoryFileSystem: LicenseGenKit.FileIO {
+    public func packageVersion() throws -> String {
+        "5.3.0"
+    }
+
     public func dumpPackage(at url: URL) throws -> Data {
         try readFileContents(.init(url.appendingPathComponent("Package.swift").path)).withData { data in
             Data(data)
