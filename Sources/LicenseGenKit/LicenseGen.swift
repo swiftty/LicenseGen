@@ -19,10 +19,13 @@ public struct LicenseGen {
         try Self.validateOptions(options, using: fileIO)
 
         let checkouts = try Self.findCheckoutContents(in: options.checkoutsPaths, using: fileIO)
-        let libraries: [Library]
+        var libraries: [Library]
         if !options.packagePaths.isEmpty {
             libraries = try options.packagePaths.flatMap { path in
                 try Self.collectLibraries(for: path, with: checkouts, logger: logger, using: fileIO)
+            }
+            if !options.perProducts {
+                libraries = libraries.map(\.checkout).uniqued()
             }
         } else {
             libraries = checkouts

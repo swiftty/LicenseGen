@@ -9,6 +9,8 @@ public struct Options {
 
     public var outputFormat: OutputFormat
 
+    public var perProducts: Bool
+
     public var config: Config?
 
     public init(
@@ -16,12 +18,14 @@ public struct Options {
         packagePaths: [URL] = [],
         outputPath: URL?,
         outputFormat: OutputFormat,
+        perProducts: Bool = false,
         config: Config? = nil
     ) {
         self.checkoutsPaths = checkoutsPaths
         self.packagePaths = packagePaths
         self.outputPath = outputPath
         self.outputFormat = outputFormat
+        self.perProducts = perProducts
         self.config = config
     }
 }

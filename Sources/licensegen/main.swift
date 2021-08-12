@@ -39,15 +39,23 @@ struct LicenseGenCommand: ParsableCommand {
     @Flag
     var outputFormat: OutputFormat
 
+    @Flag(wrappedValue: false,
+          help: "Generate licenses per package products")
+    var perProducts: Bool
+
     @Option(name: .long,
             help: "You must specify prefix, when you set --settings-bundle")
     var settingsBundlePrefix: String?
 
     mutating func run() throws {
+        if packagePaths.isEmpty && perProducts {
+            throw ValidationError("You must specify --per-products with --package-paths")
+        }
         let options = Options(checkoutsPaths: try extractCheckoutPaths(),
                               packagePaths: packagePaths.map(URL.init(fileURLWithPath:)),
                               outputPath: outputPath.map(URL.init(fileURLWithPath:)),
                               outputFormat: try extractOutputFormat(),
+                              perProducts: perProducts,
                               config: try extractConfig())
 
         LoggingSystem.bootstrap(StreamLogHandler.standardError)
