@@ -18,19 +18,27 @@ let package = Package(
                  from: "8.5.0"),
 
         .package(url: "https://github.com/ReactiveX/RxSwift.git",
-                 from: "6.2.0")
+                 from: "6.2.0"),
+
+        .package(url: "https://github.com/pointfreeco/swift-composable-architecture.git",
+                 from: "0.2.3")
     ],
     targets: [
         .target(name: "example",
                 dependencies: [
+                    // using name pattern
                     .product(name: "FirebaseAnalytics",
                              package: "Firebase"),
                     .product(name: "FirebaseAppDistribution",
                              package: "Firebase"),
 
+                    // using raw string pattern
                     "RxSwift",
                     .product(name: "RxCocoa",
-                             package: "RxSwift")
+                             package: "RxSwift"),
+
+                    .product(name: "ComposableArchitecture",
+                             package: "swift-composable-architecture")
                 ])
     ]
 )
