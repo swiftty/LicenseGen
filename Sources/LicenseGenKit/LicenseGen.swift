@@ -86,13 +86,14 @@ public struct LicenseGen {
         var packages: [URL: PackageInfo] = [:]
         var libraries: Set<SpecifiedLibrary> = []
         var collectedTargets: Set<CheckKey> = []
-        var missingProducts: Set<CheckKey> = []
+        var missingProducts: Set<String> = []
 
         func dumpPackage(path: URL, for specifiedProduct: String? = nil) throws {
             let package: PackageInfo
             if let p = packages[path] {
                 package = p
             } else {
+                logger?.info("dump package \(path.lastPathComponent) with swiftpm")
                 let data = try io.dumpPackage(at: path)
                 let desc = try JSONDecoder().decode(PackageDescription.self, from: data)
                 package = .init(description: desc, dirname: path.lastPathComponent)
@@ -102,14 +103,14 @@ public struct LicenseGen {
             func collectFromDependencies(for targetName: String) throws {
                 let key = CheckKey(packageName: package.description.name, name: targetName)
                 if collectedTargets.contains(key) {
-                    missingProducts.remove(key)
+                    missingProducts.remove(targetName)
                     return
                 }
                 collectedTargets.insert(key)
                 guard let target = package.description.targets.first(where: { $0.name == targetName }) else {
                     return
                 }
-                missingProducts.remove(key)
+                missingProducts.remove(targetName)
 
                 for dep in target.dependencies {
                     switch dep {
@@ -122,7 +123,7 @@ public struct LicenseGen {
                             try dumpPackage(path: checkout.path, for: name)
                             continue
                         }
-                        missingProducts.insert(.init(packageName: package.description.name, name: name))
+                        missingProducts.insert(name)
                         for product in package.description.products where product.targets.contains(name) {
                             guard let checkout = checkouts[package.dirname.lowercased()] else {
                                 if packages[rootPackagePath]?.description.targets.map(\.name).contains(name) ?? false {
@@ -131,7 +132,7 @@ public struct LicenseGen {
                                 logger?.warning("missing checkout: \(package.description.name)")
                                 continue
                             }
-                            missingProducts.remove(.init(packageName: package.description.name, name: name))
+                            missingProducts.remove(name)
                             libraries.insert(.init(checkout: checkout, name: product.name))
                         }
                         try collectFromDependencies(for: name)
@@ -148,7 +149,7 @@ public struct LicenseGen {
                             return
                         }
 
-                        missingProducts.remove(.init(packageName: packageName, name: name))
+                        missingProducts.remove(name)
                         libraries.insert(.init(checkout: checkout, name: name))
 
                         try dumpPackage(path: checkout.path, for: name)
@@ -166,7 +167,7 @@ public struct LicenseGen {
         try dumpPackage(path: rootPackagePath)
 
         if !missingProducts.isEmpty {
-            let libs = missingProducts.map(\.name).sorted()
+            let libs = missingProducts.sorted()
             logger?.error("missing library found: \(libs.joined(separator: ", "))")
             throw Error.missingLibrary(libs)
         }
