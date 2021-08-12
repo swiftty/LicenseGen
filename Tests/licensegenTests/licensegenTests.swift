@@ -1,5 +1,6 @@
 import XCTest
 import Foundation
+@testable import LicenseGenKit
 
 final class LicensegenTests: XCTestCase {
 
@@ -15,9 +16,10 @@ final class LicensegenTests: XCTestCase {
 
         let licensegen = productsDirectory.appendingPathComponent("licensegen")
 
-        let process = Process()
-        process.executableURL = licensegen
-        process.arguments = [
+        let pipe = Pipe()
+
+        let process = try shell(
+            licensegen,
             "--checkouts-path",
             ".build/checkouts",
             "--package-paths",
@@ -26,14 +28,10 @@ final class LicensegenTests: XCTestCase {
             "--settings-bundle-prefix",
             "example",
             "--output-path",
-            "Settings.bundle"
-        ]
-        process.currentDirectoryURL = workingDir
+            "Settings.bundle",
+            currentDirectoryURL: workingDir,
+            stdout: pipe)
 
-        let pipe = Pipe()
-        process.standardOutput = pipe
-
-        try process.run()
         process.waitUntilExit()
 
         XCTAssertEqual(process.terminationStatus, 0)
@@ -91,13 +89,9 @@ final class LicensegenTests: XCTestCase {
 }
 
 private func prepareCheckouts(at path: URL) throws {
-    let process = Process()
-    process.launchPath = "/usr/bin/env"
-    process.arguments = ["swift", "package", "resolve"]
-    process.standardOutput = FileHandle.standardError
-    process.currentDirectoryURL = path
-
-    try process.run()
+    let process = try shell("/usr/bin/env", "swift", "package", "resolve",
+                            currentDirectoryURL: path,
+                            stdout: FileHandle.standardError)
     process.waitUntilExit()
 
     XCTAssertEqual(process.terminationStatus, 0)
