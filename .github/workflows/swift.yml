@@ -30,6 +30,6 @@ jobs:
         path: Tests/licensegenTests/fixtures/.build
         key: ${{ runner.os }}-fixtures-spm-${{ hashFiles('Tests/licensegenTests/fixtures/Package.resolved') }}
     - name: Build
-      run: swift build -v
+      run: swift package clean && swift build -v
     - name: Run tests
       run: swift test -v
