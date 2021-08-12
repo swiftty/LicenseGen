@@ -19,6 +19,11 @@ jobs:
     - uses: fwal/setup-swift@v1
       with:
         swift-version: '5.4'
+      if: ${{ startsWith(runner.os, 'Linux') }}
+    - uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: '12.4'
+      if: ${{ startsWith(runner.os, 'macos') }}
     - name: Cache package build dir
       uses: actions/cache@v2.1.6
       with:
@@ -30,6 +35,6 @@ jobs:
         path: Tests/licensegenTests/fixtures/.build
         key: ${{ runner.os }}-fixtures-spm-${{ hashFiles('Tests/licensegenTests/fixtures/Package.resolved') }}
     - name: Build
-      run: swift build -v
+      run: swift package clean && swift build -v
     - name: Run tests
       run: swift test -v

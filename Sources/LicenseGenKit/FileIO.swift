@@ -68,14 +68,9 @@ struct DefaultFileIO: FileIO {
     func dumpPackage(at path: URL) throws -> Data {
         let pipe = Pipe()
 
-        let process = Process()
-        process.launchPath = "/usr/bin/env"
-        process.arguments = ["swift", "package", "dump-package"]
-        process.standardOutput = pipe
-        process.currentDirectoryURL = path
-
-        try process.run()
-        process.waitUntilExit()
+        try shell("/usr/bin/env", "swift", "package", "dump-package",
+                  currentDirectoryURL: path,
+                  stdout: pipe)
 
         return pipe.fileHandleForReading.readDataToEndOfFile()
     }
