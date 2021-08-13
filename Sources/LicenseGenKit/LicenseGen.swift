@@ -169,6 +169,10 @@ public struct LicenseGen {
 
         try dumpPackage(path: rootPackagePath)
 
+        for lib in libraries {
+            missingProducts.remove(lib.name)
+        }
+
         if !missingProducts.isEmpty {
             let libs = missingProducts.sorted()
             logger?.error("missing library found: \(libs.joined(separator: ", "))")
