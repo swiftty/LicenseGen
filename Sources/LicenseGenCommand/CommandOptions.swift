@@ -3,6 +3,8 @@ import ArgumentParser
 import Yams
 import LicenseGenKit
 
+var fileIO: FileIO = defaultFileIO()
+
 struct CommandOptions: ParsableArguments {
     struct CheckoutPath {
         var url: URL
@@ -147,7 +149,7 @@ extension CommandOptions.OutputPath {
 extension Options.Config {
     static func `default`() throws -> Self? {
         let path = ".licensegen.yml"
-        guard FileManager.default.fileExists(atPath: path) else {
+        guard fileIO.isExists(at: URL(fileURLWithPath: path)) else {
             return nil
         }
         return try load(from: path)
@@ -158,18 +160,18 @@ extension Options.Config {
     }
 
     private static func load(from configPath: String) throws -> Self? {
-        var isDirectory: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: configPath, isDirectory: &isDirectory) else {
+        var filePath = URL(fileURLWithPath: configPath)
+        guard fileIO.isExists(at: filePath) else {
             throw ValidationError("invalid --config-path \(configPath)")
         }
-        var filePath = URL(fileURLWithPath: configPath)
-        if isDirectory.boolValue {
+        if fileIO.isDirectory(at: filePath) {
             filePath.appendPathComponent(".licensegen.yml")
         }
 
         let data: Data
         do {
-            data = try Data(contentsOf: filePath)
+            let content = try fileIO.readContents(at: filePath)
+            data = Data(content.utf8)
         } catch {
             throw ValidationError("missing \(filePath.path)")
         }

@@ -46,7 +46,13 @@ let package = Package(
                     dependencies: ["licensegen"],
                     resources: [.process("fixtures")]),
         .testTarget(name: "LicenseGenCommandTests",
-                    dependencies: ["LicenseGenCommand"]),
+                    dependencies: [
+                        "LicenseGenCommand",
+                        .product(name: "SwiftToolsSupport-auto",
+                                 package: "swift-tools-support-core"),
+                        .product(name: "TSCTestSupport",
+                                 package: "swift-tools-support-core")
+                    ]),
         .testTarget(name: "LicenseGenKitTests",
                     dependencies: [
                         "LicenseGenKit",
