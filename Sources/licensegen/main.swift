@@ -29,7 +29,7 @@ struct LicenseGenCommand: ParsableCommand {
             name: .long,
             parsing: .upToNextOption,
             help: "Package.swift directory",
-            completion: .file())
+            completion: .directory)
     var packagePaths: [String]
 
     @Option(name: .long,
@@ -39,9 +39,8 @@ struct LicenseGenCommand: ParsableCommand {
     @Flag
     var outputFormat: OutputFormat
 
-    @Flag(wrappedValue: false,
-          help: "Generate licenses per package products")
-    var perProducts: Bool
+    @Flag(help: "Generate licenses per package products")
+    var perProducts: Bool = false
 
     @Option(name: .long,
             help: "You must specify prefix, when you set --settings-bundle")
@@ -74,23 +73,45 @@ struct LicenseGenCommand: ParsableCommand {
             }
             return configPath
         }
-        guard let configPath = extractConfigPath() else { return nil }
-        let data = try Data(contentsOf: URL(fileURLWithPath: configPath))
-        guard case let configs = try YAMLDecoder().decode([String: Config].self, from: data),
-              !configs.isEmpty else { return nil }
 
-        return try Options.Config(modifiers: configs.compactMapValues {
-            if $0.ignore.value && $0.licensePath != nil {
-                throw ValidationError("You can only specify ignore: or license_path:")
-            }
-            if $0.ignore.value {
-                return .ignore
-            } else if let path = $0.licensePath {
-                return .licensePath(path)
-            } else {
-                return nil
-            }
-        })
+        guard let configPath = extractConfigPath() else { return nil }
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: configPath, isDirectory: &isDirectory) else {
+            throw ValidationError("invalid --config-path \(configPath)")
+        }
+        var filePath = URL(fileURLWithPath: configPath)
+        if isDirectory.boolValue {
+            filePath.appendPathComponent(".licensegen.yml")
+        }
+
+        let data: Data
+        do {
+            data = try Data(contentsOf: filePath)
+        } catch {
+            throw ValidationError("missing \(filePath.path)")
+        }
+
+        do {
+            guard case let configs = try YAMLDecoder().decode([String: Config].self, from: data),
+                  !configs.isEmpty else { return nil }
+
+            return try Options.Config(modifiers: configs.compactMapValues {
+                if $0.ignore.value && $0.licensePath != nil {
+                    throw ValidationError("You can only specify ignore: or license_path:")
+                }
+                if $0.ignore.value {
+                    return .ignore
+                } else if let path = $0.licensePath {
+                    return .licensePath(path)
+                } else {
+                    return nil
+                }
+            })
+        } catch let error as ValidationError {
+            throw error
+        } catch {
+            throw ValidationError("cannot parse \(filePath.lastPathComponent). \(error)")
+        }
     }
 
     private func extractCheckoutPaths() throws -> [URL] {
@@ -104,7 +125,7 @@ struct LicenseGenCommand: ParsableCommand {
                 .appendingPathComponent("SourcePackages")
                 .appendingPathComponent("checkouts")
         } else {
-            throw ValidationError("Missing BUILD_DIR")
+            throw ValidationError("missing BUILD_DIR")
         }
         return [checkoutsURL]
     }
