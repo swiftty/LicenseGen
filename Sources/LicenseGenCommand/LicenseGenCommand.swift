@@ -10,9 +10,7 @@ public struct LicenseGenCommand: ParsableCommand {
     public init() {}
 
     public mutating func run() throws {
-        let options = Options(checkoutsPaths: options.checkoutsPaths.isEmpty
-                                ? options.checkoutsPaths.map(\.url)
-                                : [try CommandOptions.CheckoutPath.default().url],
+        let options = Options(checkoutsPaths: try options.checkoutsPaths().map(\.url),
                               packagePaths: options.packagePaths.map(\.url),
                               outputPath: options.outputPath?.url,
                               outputFormat: try options.outputFormat(),
