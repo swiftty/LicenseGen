@@ -28,6 +28,10 @@ let package = Package(
     targets: [
         .target(name: "licensegen",
                 dependencies: [
+                    "LicenseGenCommand"
+                ]),
+        .target(name: "LicenseGenCommand",
+                dependencies: [
                     "LicenseGenKit",
                     "Yams",
                     .product(name: "ArgumentParser",
@@ -41,6 +45,8 @@ let package = Package(
         .testTarget(name: "licensegenTests",
                     dependencies: ["licensegen"],
                     resources: [.process("fixtures")]),
+        .testTarget(name: "LicenseGenCommandTests",
+                    dependencies: ["LicenseGenCommand"]),
         .testTarget(name: "LicenseGenKitTests",
                     dependencies: [
                         "LicenseGenKit",
