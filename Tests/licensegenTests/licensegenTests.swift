@@ -1,5 +1,6 @@
 import XCTest
 import Foundation
+import ArgumentParser
 @testable import LicenseGenKit
 
 final class LicensegenTests: XCTestCase {

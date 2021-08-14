@@ -18,7 +18,7 @@ public struct LicenseGen {
     public func run(with options: Options) throws {
         try Self.validateOptions(options, using: fileIO)
 
-        let checkouts = try Self.findCheckoutContents(in: options.checkoutsPaths, using: fileIO)
+        let checkouts = try Self.findCheckoutContents(in: options.checkoutsPaths, logger: logger, using: fileIO)
         var libraries: [Library]
         if !options.packagePaths.isEmpty {
             libraries = try options.packagePaths.flatMap { path in
@@ -51,7 +51,7 @@ public struct LicenseGen {
     }
 
     static func validateOptions(_ options: Options, using io: FileIO) throws {
-        for path in options.checkoutsPaths + options.packagePaths {
+        for path in options.checkoutsPaths {
             if !io.isDirectory(at: path) {
                 throw Error.invalidPath(path)
             }
@@ -59,10 +59,14 @@ public struct LicenseGen {
     }
 
     static func findCheckoutContents(in checkoutsPaths: [URL],
+                                     logger: Logger?,
                                      using io: FileIO) throws -> [CheckoutContent] {
         var checkouts: [CheckoutContent] = []
         for checkoutsPath in checkoutsPaths {
-            for path in try io.getDirectoryContents(at: checkoutsPath) where io.isDirectory(at: path) {
+            let contents = try logging(logger) {
+                try io.getDirectoryContents(at: checkoutsPath)
+            }
+            for path in contents where io.isDirectory(at: path) {
                 checkouts.append(.init(path: path))
             }
         }
@@ -97,8 +101,12 @@ public struct LicenseGen {
                 package = p
             } else {
                 logger?.info("dump package \(path.lastPathComponent) with swiftpm")
-                let data = try io.dumpPackage(at: path)
-                let desc = try JSONDecoder().decode(PackageDescription.self, from: data)
+                let data = try logging(logger) {
+                    try io.dumpPackage(at: path)
+                }
+                let desc = try logging(logger) {
+                    try JSONDecoder().decode(PackageDescription.self, from: data)
+                }
                 package = .init(description: desc, dirname: path.lastPathComponent)
                 packages[path] = package
             }
@@ -204,13 +212,16 @@ public struct LicenseGen {
         for c in candidates {
             let path = library.checkout.path.appendingPathComponent(c)
             guard io.isExists(at: path) else { continue }
-            let content = try io.readContents(at: path)
+            let content = try logging(logger) {
+                try io.readContents(at: path)
+            }
             return License(source: library, name: library.name, content: .init(version: nil, body: content))
         }
 
         let candidateMessage = candidates.count > 1
             ? "(\(candidates.joined(separator: " | ")))"
             : "\(candidates.joined())"
+
         logger?.critical("""
         missing license: \(library.name), \
         location \(library.checkout.path)\(candidateMessage)
@@ -221,5 +232,16 @@ public struct LicenseGen {
         }
 
         return nil
+    }
+}
+
+func logging<T>(_ logger: Logger?, message: @autoclosure () -> String? = nil,
+                function: StaticString = #function, line: UInt = #line,
+                _ closure: () throws -> T) rethrows -> T {
+    do {
+        return try closure()
+    } catch let e {
+        logger?.critical("\(message() ?? "Unexpected error")[\(function)L:\(line)]")
+        throw e
     }
 }

@@ -22,6 +22,8 @@ public protocol FileIO {
     func createTmpDirectory() throws -> URL
 }
 
+public func defaultFileIO() -> FileIO { DefaultFileIO() }
+
 // MARK: -
 struct DefaultFileIO: FileIO {
     func isDirectory(at url: URL) -> Bool {
