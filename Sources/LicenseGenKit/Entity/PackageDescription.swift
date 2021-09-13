@@ -1,25 +1,29 @@
 import Foundation
 
-struct PackageVersion: RawRepresentable {
-    enum Error: Swift.Error {
-        case unknownPackageVersion(String)
-    }
+struct PackageDecoder {
+    static func from(_ version: String) -> PackageDecoder {
+        func findDecoder() -> (Data, JSONDecoder) throws -> PackageDescription {
+            func make<D: Decodable>(_ type: D.Type) -> (Data, JSONDecoder) throws -> D {
+                return { try $1.decode(type, from: $0) }
+            }
 
-    var rawValue: String
-
-    init(rawValue: String) {
-        self.rawValue = rawValue
-    }
-
-    func loadDescription(from data: Data) throws -> PackageDescription {
-        if rawValue.compare(PackageDescription5_5.version, options: .numeric) != .orderedAscending {
-            return try JSONDecoder().decode(PackageDescription5_5.self, from: data)
+            if case let d = PackageDescription5_5.self, d.isOlder(than: version) {
+                return make(d)
+            }
+            return make(PackageDescription5_3.self)
         }
-        return try JSONDecoder().decode(PackageDescription5_3.self, from: data)
+        return self.init(decoder: findDecoder())
+    }
+
+    private let decoder: (Data, JSONDecoder) throws -> PackageDescription
+
+    func decode(from data: Data) throws -> PackageDescription {
+        try decoder(data, JSONDecoder())
     }
 }
 
 protocol PackageDescription {
+    static var version: String { get }
     var name: String { get }
     var products: [PackageProduct] { get }
     var dependencies: [PackageDependency] { get }
@@ -80,6 +84,12 @@ struct PackageTarget: Decodable {
             default: return false
             }
         }
+    }
+}
+
+private extension PackageDescription {
+    static func isOlder(than target: String) -> Bool {
+        target.compare(version, options: .numeric) != .orderedAscending
     }
 }
 

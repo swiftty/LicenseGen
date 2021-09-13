@@ -92,7 +92,7 @@ final class LicenseGenKitTests: XCTestCase {
         let rootPackagePath = URL(fileURLWithPath: "/")
         let results = try LicenseGen.collectLibraries(for: rootPackagePath,
                                                       with: checkouts,
-                                                      version: .init(rawValue: "5.3.0"),
+                                                      packageDecoder: .from("5.3.0"),
                                                       using: fs)
 
         XCTAssertEqual(Set(results.map(\.name)), [
