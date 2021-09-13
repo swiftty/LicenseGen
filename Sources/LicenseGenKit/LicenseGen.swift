@@ -6,6 +6,8 @@ public struct LicenseGen {
         case invalidPath(URL)
         case missingLicense(String)
         case missingLibrary([String])
+
+        case unknownSwiftPM(String)
     }
 
     private let fileIO = DefaultFileIO()
@@ -21,8 +23,10 @@ public struct LicenseGen {
         let checkouts = try Self.findCheckoutContents(in: options.checkoutsPaths, logger: logger, using: fileIO)
         var libraries: [Library]
         if !options.packagePaths.isEmpty {
+            let packageDecoder = try PackageDecoder.from(fileIO.packageVersion())
             libraries = try options.packagePaths.flatMap { path in
-                try Self.collectLibraries(for: path, with: checkouts, logger: logger, using: fileIO)
+                try Self.collectLibraries(for: path, with: checkouts,
+                                             packageDecoder: packageDecoder, logger: logger, using: fileIO)
             }
             if !options.perProducts {
                 libraries = libraries.map(\.checkout).uniqued()
@@ -75,6 +79,7 @@ public struct LicenseGen {
 
     static func collectLibraries(for rootPackagePath: URL,
                                  with checkouts: [CheckoutContent],
+                                 packageDecoder: PackageDecoder,
                                  logger: Logger? = nil,
                                  using io: FileIO) throws -> [Library] {
         let checkouts = Dictionary(uniqueKeysWithValues: checkouts.map {
@@ -105,7 +110,7 @@ public struct LicenseGen {
                     try io.dumpPackage(at: path)
                 }
                 let desc = try logging(logger) {
-                    try JSONDecoder().decode(PackageDescription.self, from: data)
+                    try packageDecoder.decode(from: data)
                 }
                 package = .init(description: desc, dirname: path.lastPathComponent)
                 packages[path] = package

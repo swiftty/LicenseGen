@@ -17,6 +17,8 @@ public protocol FileIO {
 
     func writeContents(_ data: Data, to url: URL) throws
 
+    func packageVersion() throws -> String
+
     func dumpPackage(at url: URL) throws -> Data
 
     func createTmpDirectory() throws -> URL
@@ -65,6 +67,24 @@ struct DefaultFileIO: FileIO {
 
     func writeContents(_ data: Data, to url: URL) throws {
         try data.write(to: url, options: .atomic)
+    }
+
+    func packageVersion() throws -> String {
+        let pipe = Pipe()
+
+        try shell("/usr/bin/env", "swift", "package", "--version",
+                  stdout: pipe)
+
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        let str = String(data: data, encoding: .utf8) ?? ""
+
+        let regex = try NSRegularExpression(pattern: #"(\d\.\d\.\d?)"#, options: [])
+        let results = regex.matches(in: str, options: [], range: NSRange(str.startIndex..<str.endIndex, in: str))
+
+        guard let result = results.first, let range = Range<String.Index>(result.range, in: str) else {
+            throw LicenseGen.Error.unknownSwiftPM(str)
+        }
+        return String(str[range])
     }
 
     func dumpPackage(at path: URL) throws -> Data {
