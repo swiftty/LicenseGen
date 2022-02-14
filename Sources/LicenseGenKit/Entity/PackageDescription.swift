@@ -7,7 +7,9 @@ struct PackageDecoder {
                 return { try $1.decode(type, from: $0) }
             }
 
-            if case let d = PackageDescription5_5.self, d.isOlder(than: version) {
+            if case let d = PackageDescription5_6.self, d.isOlder(than: version) {
+                return make(d)
+            } else if case let d = PackageDescription5_5.self, d.isOlder(than: version) {
                 return make(d)
             }
             return make(PackageDescription5_3.self)
@@ -103,7 +105,7 @@ private struct PackageDescription5_3: PackageDescription, Decodable {
     var dependencies: [PackageDependency]
 }
 
-// MARK: - 5.5~
+// MARK: - 5.5
 private struct PackageDescription5_5: PackageDescription, Decodable {
     static let version = "5.5"
 
@@ -129,5 +131,40 @@ private struct PackageDescription5_5: PackageDescription, Decodable {
         var identity: String
         var name: String?
         var location: URL
+    }
+}
+
+// MARK: - 5.6~
+private struct PackageDescription5_6: PackageDescription, Decodable {
+    static let version = "5.6"
+
+    var name: String
+    var products: [PackageProduct]
+    var targets: [PackageTarget]
+    var dependencies: [PackageDependency] {
+        _dependencies
+            .flatMap(\.values)
+            .flatMap { $0 }
+            .map {
+                PackageDependency(name: $0.nameForTargetDependencyResolutionOnly ?? $0.identity,
+                                  url: ($0.location.remote?.first ?? $0.location.local?.first)!)
+            }
+    }
+
+    private var _dependencies: [[String: [SCM]]]
+
+    private enum CodingKeys: String, CodingKey {
+        case name, products, targets, _dependencies = "dependencies"
+    }
+
+    struct SCM: Decodable {
+        var identity: String
+        var nameForTargetDependencyResolutionOnly: String?
+        var location: Location
+
+        struct Location: Decodable {
+            var remote: [URL]?
+            var local: [URL]?
+        }
     }
 }
