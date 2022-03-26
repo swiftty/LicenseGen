@@ -55,7 +55,7 @@ extension InMemoryFileSystem: LicenseGenKit.FileIO {
 
 final class LicenseGenKitTests: XCTestCase {
 
-    func testFindCheckoutPackages() throws {
+    func testFindCheckoutPackages() async throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/checkoutsA/PackageA/LICENSE",
             "/checkoutsA/PackageB/LICENSE",
@@ -66,7 +66,7 @@ final class LicenseGenKitTests: XCTestCase {
             URL(fileURLWithPath: "/checkoutsA"),
             URL(fileURLWithPath: "/checkoutsB")
         ]
-        let contents = try LicenseGen.findCheckoutContents(in: checkoutsPaths, logger: nil, using: fs)
+        let contents = try await LicenseGen.findCheckoutContents(in: checkoutsPaths, logger: nil, using: fs)
 
         XCTAssertEqual(contents.map(\.name), [
             "PackageA",
@@ -75,7 +75,7 @@ final class LicenseGenKitTests: XCTestCase {
         ])
     }
 
-    func testCollectLibraries() throws {
+    func testCollectLibraries() async throws {
         let fs = InMemoryFileSystem()
         try fs.writeFileContents(.init("/Package.swift"),
                                  fixture: "collect_library/Package.swift.json")
@@ -90,10 +90,10 @@ final class LicenseGenKitTests: XCTestCase {
         ]
 
         let rootPackagePath = URL(fileURLWithPath: "/")
-        let results = try LicenseGen.collectLibraries(for: rootPackagePath,
-                                                      with: checkouts,
-                                                      packageDecoder: .from("5.3.0"),
-                                                      using: fs)
+        let results = try await LicenseGen.collectLibraries(for: rootPackagePath,
+                                                            with: checkouts,
+                                                            packageDecoder: .from("5.3.0"),
+                                                            using: fs)
 
         XCTAssertEqual(Set(results.map(\.name)), [
             "licensegen",

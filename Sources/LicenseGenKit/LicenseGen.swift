@@ -20,13 +20,20 @@ public struct LicenseGen {
     public func run(with options: Options) async throws {
         try Self.validateOptions(options, using: fileIO)
 
-        let checkouts = try Self.findCheckoutContents(in: options.checkoutsPaths, logger: logger, using: fileIO)
+        let checkouts = try await Self.findCheckoutContents(in: options.checkoutsPaths, logger: logger, using: fileIO)
         var libraries: [Library]
         if !options.packagePaths.isEmpty {
             let packageDecoder = try PackageDecoder.from(fileIO.packageVersion())
-            libraries = try options.packagePaths.flatMap { path in
-                try Self.collectLibraries(for: path, with: checkouts,
-                                             packageDecoder: packageDecoder, logger: logger, using: fileIO)
+            libraries = try await withThrowingTaskGroup(of: [Library].self) { group in
+                for path in options.packagePaths {
+                    group.addTask {
+                        try await Self.collectLibraries(for: path, with: checkouts,
+                                                        packageDecoder: packageDecoder, logger: logger, using: fileIO)
+                    }
+                }
+                return try await group.reduce(into: []) {
+                    $0.append(contentsOf: $1)
+                }
             }
             if !options.perProducts {
                 libraries = libraries.map(\.checkout).uniqued()
@@ -64,24 +71,32 @@ public struct LicenseGen {
 
     static func findCheckoutContents(in checkoutsPaths: [URL],
                                      logger: Logger?,
-                                     using io: FileIO) throws -> [CheckoutContent] {
-        var checkouts: [CheckoutContent] = []
-        for checkoutsPath in checkoutsPaths {
-            let contents = try logging(logger) {
-                try io.getDirectoryContents(at: checkoutsPath)
+                                     using io: FileIO) async throws -> [CheckoutContent] {
+        return try await withThrowingTaskGroup(of: [CheckoutContent].self) { group -> [CheckoutContent] in
+            for checkoutsPath in checkoutsPaths {
+                group.addTask {
+                    let contents = try logging(logger) {
+                        try io.getDirectoryContents(at: checkoutsPath)
+                    }
+                    var checkouts: [CheckoutContent] = []
+                    for path in contents where io.isDirectory(at: path) {
+                        checkouts.append(.init(path: path))
+                    }
+                    return checkouts
+                }
             }
-            for path in contents where io.isDirectory(at: path) {
-                checkouts.append(.init(path: path))
-            }
+            return try await group
+                .reduce(into: []) { $0.append(contentsOf: $1) }
+                .uniqued(by: \.name)
+                .sorted()
         }
-        return checkouts.uniqued(by: \.name).sorted()
     }
 
     static func collectLibraries(for rootPackagePath: URL,
                                  with checkouts: [CheckoutContent],
                                  packageDecoder: PackageDecoder,
                                  logger: Logger? = nil,
-                                 using io: FileIO) throws -> [Library] {
+                                 using io: FileIO) async throws -> [Library] {
         let checkouts = Dictionary(uniqueKeysWithValues: checkouts.map {
             ($0.name.lowercased(), $0)
         })
@@ -100,7 +115,7 @@ public struct LicenseGen {
         var collectedTargets: Set<CheckKey> = []
         var missingProducts: Set<String> = []
 
-        func dumpPackage(path: URL, for specifiedProduct: String? = nil) throws {
+        func dumpPackage(path: URL, for specifiedProduct: String? = nil) async throws {
             let package: PackageInfo
             if let p = packages[path] {
                 package = p
@@ -116,7 +131,7 @@ public struct LicenseGen {
                 packages[path] = package
             }
 
-            func collectFromDependencies(for targetName: String) throws {
+            func collectFromDependencies(for targetName: String) async throws {
                 let key = CheckKey(packageName: package.description.name, name: targetName)
                 if collectedTargets.contains(key) {
                     missingProducts.remove(targetName)
@@ -136,7 +151,7 @@ public struct LicenseGen {
                            packages[checkout.path] == nil {
 
                             libraries.insert(.init(checkout: checkout, name: name))
-                            try dumpPackage(path: checkout.path, for: name)
+                            try await dumpPackage(path: checkout.path, for: name)
                             continue
                         }
                         missingProducts.insert(name)
@@ -151,7 +166,7 @@ public struct LicenseGen {
                             missingProducts.remove(name)
                             libraries.insert(.init(checkout: checkout, name: product.name))
                         }
-                        try collectFromDependencies(for: name)
+                        try await collectFromDependencies(for: name)
 
                     case .product(let name, let packageName):
                         let packageName = packageName ?? name
@@ -168,19 +183,19 @@ public struct LicenseGen {
                         missingProducts.remove(name)
                         libraries.insert(.init(checkout: checkout, name: name))
 
-                        try dumpPackage(path: checkout.path, for: name)
+                        try await dumpPackage(path: checkout.path, for: name)
                     }
                 }
             }
 
             for p in package.description.products where specifiedProduct.map({ $0 == p.name }) ?? true {
                 for t in p.targets {
-                    try collectFromDependencies(for: t)
+                    try await collectFromDependencies(for: t)
                 }
             }
         }
 
-        try dumpPackage(path: rootPackagePath)
+        try await dumpPackage(path: rootPackagePath)
 
         for lib in libraries {
             missingProducts.remove(lib.name)
