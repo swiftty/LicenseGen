@@ -3,16 +3,16 @@ import ArgumentParser
 import Logging
 import LicenseGenKit
 
-public struct LicenseGenCommand: ParsableCommand {
+public struct LicenseGenCommand: AsyncParsableCommand {
     @OptionGroup
     var options: CommandOptions
 
     public init() {}
 
-    public mutating func run() throws {
+    public mutating func run() async throws {
         LoggingSystem.bootstrap(StreamLogHandler.standardError)
         let logger = Logger(label: "lisencegen")
-        try LicenseGen(logger: logger).run(
+        try await LicenseGen(logger: logger).run(
             with: Options(checkoutsPaths: try options.checkoutsPaths().map(\.url),
                           packagePaths: options.packagePaths.map(\.url),
                           outputPath: options.outputPath?.url,

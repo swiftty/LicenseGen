@@ -17,7 +17,7 @@ public struct LicenseGen {
         self.logger = logger
     }
 
-    public func run(with options: Options) throws {
+    public func run(with options: Options) async throws {
         try Self.validateOptions(options, using: fileIO)
 
         let checkouts = try Self.findCheckoutContents(in: options.checkoutsPaths, logger: logger, using: fileIO)
