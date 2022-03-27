@@ -110,14 +110,39 @@ public struct LicenseGen {
             var name: String
         }
 
-        var packages: [URL: PackageInfo] = [:]
-        var libraries: Set<SpecifiedLibrary> = []
-        var collectedTargets: Set<CheckKey> = []
-        var missingProducts: Set<String> = []
+        actor Collector {
+            var packages: [URL: PackageInfo] = [:]
+            var libraries: Set<SpecifiedLibrary> = []
+            var collectedTargets: Set<CheckKey> = []
+            var missingProducts: Set<String> = []
 
+            func addPackage(_ package: PackageInfo, for path: URL) {
+                packages[path] = package
+            }
+
+            func addLibrary(_ library: SpecifiedLibrary) {
+                libraries.insert(library)
+            }
+
+            func collect(_ key: CheckKey) {
+                collectedTargets.insert(key)
+            }
+
+            func addMissingProduct(_ target: String) {
+                missingProducts.insert(target)
+            }
+
+            func removeMissingProduct(_ target: String) {
+                missingProducts.remove(target)
+            }
+        }
+
+        let collector = Collector()
+
+        @Sendable
         func dumpPackage(path: URL, for specifiedProduct: String? = nil) async throws {
             let package: PackageInfo
-            if let p = packages[path] {
+            if let p = await collector.packages[path] {
                 package = p
             } else {
                 logger?.info("dump package \(path.lastPathComponent) with swiftpm")
@@ -128,43 +153,45 @@ public struct LicenseGen {
                     try packageDecoder.decode(from: data)
                 }
                 package = .init(description: desc, dirname: path.lastPathComponent)
-                packages[path] = package
+                await collector.addPackage(package, for: path)
             }
 
+            @Sendable
             func collectFromDependencies(for targetName: String) async throws {
                 let key = CheckKey(packageName: package.description.name, name: targetName)
-                if collectedTargets.contains(key) {
-                    missingProducts.remove(targetName)
+                if await collector.collectedTargets.contains(key) {
+                    await collector.removeMissingProduct(targetName)
                     return
                 }
-                collectedTargets.insert(key)
+                await collector.collect(key)
                 guard let target = package.description.targets.first(where: { $0.name == targetName }) else {
                     return
                 }
-                missingProducts.remove(targetName)
+                await collector.removeMissingProduct(targetName)
 
                 for dep in target.dependencies {
                     switch dep {
                     case .byName(let name), .target(let name):
                         if dep == .byName(name),
                            let checkout = checkouts[name.lowercased()],
-                           packages[checkout.path] == nil {
+                           await collector.packages[checkout.path] == nil {
 
-                            libraries.insert(.init(checkout: checkout, name: name))
+                            await collector.addLibrary(.init(checkout: checkout, name: name))
                             try await dumpPackage(path: checkout.path, for: name)
                             continue
                         }
-                        missingProducts.insert(name)
+                        await collector.addMissingProduct(name)
                         for product in package.description.products where product.targets.contains(name) {
                             guard let checkout = checkouts[package.dirname.lowercased()] else {
-                                if packages[rootPackagePath]?.description.targets.map(\.name).contains(name) ?? false {
+                                let p = await collector.packages[rootPackagePath]
+                                if p?.description.targets.map(\.name).contains(name) ?? false {
                                     continue
                                 }
                                 logger?.warning("missing checkout: \(package.description.name)")
                                 continue
                             }
-                            missingProducts.remove(name)
-                            libraries.insert(.init(checkout: checkout, name: product.name))
+                            await collector.removeMissingProduct(name)
+                            await collector.addLibrary(.init(checkout: checkout, name: product.name))
                         }
                         try await collectFromDependencies(for: name)
 
@@ -180,33 +207,38 @@ public struct LicenseGen {
                             return
                         }
 
-                        missingProducts.remove(name)
-                        libraries.insert(.init(checkout: checkout, name: name))
+                        await collector.removeMissingProduct(name)
+                        await collector.addLibrary(.init(checkout: checkout, name: name))
 
                         try await dumpPackage(path: checkout.path, for: name)
                     }
                 }
             }
 
-            for p in package.description.products where specifiedProduct.map({ $0 == p.name }) ?? true {
-                for t in p.targets {
-                    try await collectFromDependencies(for: t)
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                for p in package.description.products where specifiedProduct.map({ $0 == p.name }) ?? true {
+                    for t in p.targets {
+                        group.addTask {
+                            try await collectFromDependencies(for: t)
+                        }
+                    }
                 }
+                try await group.waitForAll()
             }
         }
 
         try await dumpPackage(path: rootPackagePath)
 
-        for lib in libraries {
-            missingProducts.remove(lib.name)
+        for lib in await collector.libraries {
+            await collector.removeMissingProduct(lib.name)
         }
 
-        if !missingProducts.isEmpty {
-            let libs = missingProducts.sorted()
+        if await !collector.missingProducts.isEmpty {
+            let libs = await collector.missingProducts.sorted()
             logger?.error("missing library found: \(libs.joined(separator: ", "))")
             throw Error.missingLibrary(libs)
         }
-        return Array(libraries)
+        return Array(await collector.libraries)
     }
 
     static func generateLicense(for library: Library,
