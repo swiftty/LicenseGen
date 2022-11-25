@@ -35,12 +35,13 @@ struct CommandOptions: ParsableArguments {
             help: "You can specify custom spm checkouts path. Default: ${BUILD_DIR}/../../SourcePackages/checkouts",
             completion: .directory,
             transform: CheckoutPath.transform)
-    var _checkoutsPaths: [CheckoutPath] = []
-    func checkoutsPaths() throws -> [CheckoutPath] {
-        if _checkoutsPaths.isEmpty {
+    var checkoutsPaths: [CheckoutPath] = []
+
+    func validatedCheckoutsPaths() throws -> [CheckoutPath] {
+        if checkoutsPaths.isEmpty {
             return try [.default()]
         } else {
-            return _checkoutsPaths
+            return checkoutsPaths
         }
     }
 
@@ -60,7 +61,7 @@ struct CommandOptions: ParsableArguments {
     var perProducts: Bool = false
 
     @Flag
-    private var _outputFormat: OutputFormat
+    private var outputFormat: OutputFormat
 
     @Option(name: .long,
             help: "You must specify prefix, when you set --settings-bundle")
@@ -70,11 +71,11 @@ struct CommandOptions: ParsableArguments {
         if packagePaths.isEmpty && perProducts {
             throw ValidationError("You must specify --per-products with --package-paths")
         }
-        _ = try outputFormat()
+        _ = try validatedOutputFormat()
     }
 
-    func outputFormat() throws -> Options.OutputFormat {
-        switch _outputFormat {
+    func validatedOutputFormat() throws -> Options.OutputFormat {
+        switch outputFormat {
         case .settingsBundle:
             guard let prefix = settingsBundlePrefix else {
                 throw ValidationError("Missing expected argument '--settings-bundle-prefix <settings-bundle-prefix>'")
