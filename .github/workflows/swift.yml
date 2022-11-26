@@ -11,26 +11,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest]
+        os: [ macos-latest, ubuntu-latest ]
     runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v2
-    - uses: fwal/setup-swift@v1
+    - uses: actions/checkout@v3
+    - uses: swift-actions/setup-swift@v1
       with:
-        swift-version: '5.4'
-      if: ${{ startsWith(runner.os, 'Linux') }}
-    - uses: maxim-lobanov/setup-xcode@v1
-      with:
-        xcode-version: '12.4'
-      if: ${{ startsWith(runner.os, 'macos') }}
+        swift-version: "5.7"
     - name: Cache package build dir
-      uses: actions/cache@v2.1.6
+      uses: actions/cache@v3
       with:
         path: .build
         key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
     - name: Cache test package build dir
-      uses: actions/cache@v2.1.6
+      uses: actions/cache@v3
       with:
         path: Tests/licensegenTests/fixtures/.build
         key: ${{ runner.os }}-fixtures-spm-${{ hashFiles('Tests/licensegenTests/fixtures/Package.resolved') }}
