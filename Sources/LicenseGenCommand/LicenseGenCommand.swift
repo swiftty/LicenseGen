@@ -13,10 +13,10 @@ public struct LicenseGenCommand: ParsableCommand {
         LoggingSystem.bootstrap(StreamLogHandler.standardError)
         let logger = Logger(label: "lisencegen")
         try LicenseGen(logger: logger).run(
-            with: Options(checkoutsPaths: try options.checkoutsPaths().map(\.url),
+            with: Options(checkoutsPaths: try options.validatedCheckoutsPaths().map(\.url),
                           packagePaths: options.packagePaths.map(\.url),
                           outputPath: options.outputPath?.url,
-                          outputFormat: try options.outputFormat(),
+                          outputFormat: try options.validatedOutputFormat(),
                           perProducts: options.perProducts,
                           config: try options.config ?? .default())
         )
