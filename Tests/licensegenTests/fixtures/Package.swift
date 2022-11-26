@@ -18,7 +18,7 @@ let package = Package(
                  from: "8.5.0"),
 
         .package(url: "https://github.com/ReactiveX/RxSwift.git",
-                 from: "6.2.0"),
+                 from: "6.5.0"),
 
         .package(url: "https://github.com/pointfreeco/swift-composable-architecture.git",
                  from: "0.2.3")
