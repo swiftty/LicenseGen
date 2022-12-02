@@ -65,6 +65,7 @@ let package = Package(
         .target(
             name: "LicenseGenKit",
             dependencies: [
+                "LicenseGenEntity",
                 "LicenseGenSwiftPMProxy",
                 .product(name: "Logging", package: "swift-log")
             ]),

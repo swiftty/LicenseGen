@@ -39,6 +39,12 @@ extension Package {
 
         public enum Location {
             case remote(URL)
+
+            public var url: URL {
+                switch self {
+                case .remote(let url): return url
+                }
+            }
         }
 
         public init(
@@ -54,7 +60,7 @@ extension Package {
         public var name: String
         public var dependencies: [Dependency]
 
-        public enum Dependency {
+        public enum Dependency: Equatable {
             case target(name: String)
             case product(name: String, package: String?)
             case byName(String)

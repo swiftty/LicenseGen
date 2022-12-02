@@ -1,5 +1,6 @@
 import XCTest
 @testable import LicenseGenKit
+@testable import LicenseGenSwiftPMProxy
 import TSCBasic
 import TSCTestSupport
 
@@ -53,6 +54,23 @@ extension InMemoryFileSystem: LicenseGenKit.FileIO {
     }
 }
 
+extension InMemoryFileSystem: LicenseGenSwiftPMProxy.ProcessIO {
+    public func shell(_ launchPath: String, _ arguments: String...) -> Shell {
+        Shell(launchPath: launchPath, arguments: arguments) { shell in
+            if arguments.contains("dump-package") {
+                let url = shell.currentDirectoryURL?.appendingPathComponent("Package.swift")
+                return try self.readFileContents(.init(url?.path ?? "")).withData { data in
+                    Data(data)
+                }
+            } else if arguments.contains("--version") {
+                return "5.3.0".data(using: .utf8) ?? Data()
+            } else {
+                return Data()
+            }
+        }
+    }
+}
+
 final class LicenseGenKitTests: XCTestCase {
 
     func testFindCheckoutPackages() throws {
@@ -75,7 +93,7 @@ final class LicenseGenKitTests: XCTestCase {
         ])
     }
 
-    func testCollectLibraries() throws {
+    func testCollectLibraries() async throws {
         let fs = InMemoryFileSystem()
         try fs.writeFileContents(.init("/Package.swift"),
                                  fixture: "collect_library/Package.swift.json")
@@ -90,10 +108,10 @@ final class LicenseGenKitTests: XCTestCase {
         ]
 
         let rootPackagePath = URL(fileURLWithPath: "/")
-        let results = try LicenseGen.collectLibraries(for: rootPackagePath,
-                                                      with: checkouts,
-                                                      packageDecoder: .from("5.3.0"),
-                                                      using: fs)
+        let results = try await LicenseGen.collectLibraries(for: rootPackagePath,
+                                                            spmVersion: "5.3.0",
+                                                            with: checkouts,
+                                                            using: fs)
 
         XCTAssertEqual(Set(results.map(\.name)), [
             "licensegen",

@@ -10,7 +10,7 @@ final class LicenseGenSwiftPMProxyTests: XCTestCase {
                 .deletingLastPathComponent(),
             spmVersion: "5.7")
 
-        let package = try await request.send()
+        let package = try await request.send(using: processIO)
 
         XCTAssertEqual(package.name, "LicenseGen")
         XCTAssertEqual(package.products.count, 2)
