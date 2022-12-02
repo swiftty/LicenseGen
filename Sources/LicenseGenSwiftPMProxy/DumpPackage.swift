@@ -10,10 +10,10 @@ public struct DumpPackage: ProxyRequest {
         self.spmVersion = spmVersion
     }
 
-    public func send() async throws -> Package {
+    public func send(using io: any ProcessIO) async throws -> Package {
         TaskValues.logger?.info("dump package \(path.lastPathComponent) with swiftpm")
 
-        let data = try logging { try readData() }
+        let data = try await logging { try await readData(using: io) }
         let decoder = PackageDecoder.from(spmVersion)
         let decoded = try logging { try decoder.decode(from: data) }
 
@@ -37,14 +37,11 @@ public struct DumpPackage: ProxyRequest {
         )
     }
 
-    private func readData() throws -> Data {
-        let pipe = Pipe()
+    private func readData(using io: any ProcessIO) async throws -> Data {
+        var shell = io.shell("/usr/bin/env", "swift", "package", "dump-package")
+        shell.currentDirectoryURL = path
 
-        try shell("/usr/bin/env", "swift", "package", "dump-package",
-                  currentDirectoryURL: path,
-                  stdout: pipe)
-
-        return pipe.fileHandleForReading.readDataToEndOfFile()
+        return try await shell()
     }
 }
 

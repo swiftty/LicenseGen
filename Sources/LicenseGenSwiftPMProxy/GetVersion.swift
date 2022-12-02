@@ -3,13 +3,9 @@ import Foundation
 public struct GetVersion: ProxyRequest {
     public init() {}
 
-
-    public func send() async throws -> String? {
-        let pipe = Pipe()
-
-        try shell("/usr/bin/env", "swift", "package", "--version", stdout: pipe)
-
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+    public func send(using io: ProcessIO) async throws -> String? {
+        let shell = io.shell("/usr/bin/env", "swift", "package", "--version")
+        let data = try await shell()
         let str = String(data: data, encoding: .utf8) ?? ""
 
         let regex = try NSRegularExpression(pattern: #"(\d\.\d\.\d?)"#, options: [])
