@@ -5,7 +5,7 @@ import PackageDescription
 
 let package = Package(
     name: "LicenseGen",
-    platforms: [.macOS(.v10_15)],
+    platforms: [.macOS(.v11)],
     products: [
         .executable(
             name: "licensegen",
@@ -41,6 +41,19 @@ let package = Package(
             dependencies: [
                 "LicenseGenCommand"
             ]),
+
+        // MARK: -
+        .target(
+            name: "LicenseGenEntity"),
+
+        .target(
+            name: "LicenseGenSwiftPMProxy",
+            dependencies: [
+                "LicenseGenEntity",
+                .product(name: "SwiftPM", package: "swift-package-manager"),
+                .product(name: "Logging", package: "swift-log")
+            ]),
+
         .target(
             name: "LicenseGenCommand",
             dependencies: [
@@ -52,6 +65,7 @@ let package = Package(
         .target(
             name: "LicenseGenKit",
             dependencies: [
+                "LicenseGenSwiftPMProxy",
                 .product(name: "Logging", package: "swift-log")
             ]),
 
@@ -77,6 +91,10 @@ let package = Package(
                 .product(name: "TSCTestSupport",
                          package: "swift-tools-support-core")
             ],
-            resources: [.process("fixtures")])
+            resources: [.process("fixtures")]),
+
+        .testTarget(
+            name: "LicenseGenSwiftPMProxyTests",
+            dependencies: ["LicenseGenSwiftPMProxy"])
     ]
 )
