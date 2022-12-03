@@ -14,16 +14,13 @@ public struct LicenseGen {
 
     private let fileIO = DefaultFileIO()
     private let processIO: any ProcessIO = LicenseGenSwiftPMProxy.processIO
-    private let logger: Logger
 
-    public init(logger: Logger) {
-        self.logger = logger
-    }
+    public init() {}
 
     public func run(with options: Options) async throws {
         try Self.validateOptions(options, using: fileIO)
 
-        let checkouts = try Self.findCheckoutContents(in: options.checkoutsPaths, logger: logger, using: fileIO)
+        let checkouts = try Self.findCheckoutContents(in: options.checkoutsPaths, using: fileIO)
         var libraries: [Library]
         if !options.packagePaths.isEmpty {
             let version = try await GetVersion().send(using: processIO)
@@ -41,10 +38,10 @@ public struct LicenseGen {
 
         var modifiers = options.config?.modifiers
         let licenses = try libraries.compactMap {
-            try Self.generateLicense(for: $0, modifiers: &modifiers, logger: logger, using: fileIO)
+            try Self.generateLicense(for: $0, modifiers: &modifiers, using: fileIO)
         }
         modifiers?.keys.forEach { key in
-            logger.warning(#"Unused settings found: "\#(key)""#)
+            TaskValues.logger?.warning(#"Unused settings found: "\#(key)""#)
         }
 
         let writer: OutputWriter = {
@@ -53,9 +50,9 @@ public struct LicenseGen {
                 return SettingsBundleWriter(prefix: prefix)
             }
         }()
-        try writer.write(licenses.sorted(), to: options.outputPath, logger: logger, using: fileIO)
+        try writer.write(licenses.sorted(), to: options.outputPath, using: fileIO)
 
-        logger.info("done!")
+        TaskValues.logger?.info("done!")
     }
 
     static func validateOptions(_ options: Options, using io: FileIO) throws {
@@ -67,11 +64,10 @@ public struct LicenseGen {
     }
 
     static func findCheckoutContents(in checkoutsPaths: [URL],
-                                     logger: Logger?,
                                      using io: FileIO) throws -> [CheckoutContent] {
         var checkouts: [CheckoutContent] = []
         for checkoutsPath in checkoutsPaths {
-            let contents = try logging(logger) {
+            let contents = try logging {
                 try io.getDirectoryContents(at: checkoutsPath)
             }
             for path in contents where io.isDirectory(at: path) {
@@ -84,7 +80,6 @@ public struct LicenseGen {
     static func collectLibraries(for rootPackagePath: URL,
                                  spmVersion: String,
                                  with checkouts: [CheckoutContent],
-                                 logger: Logger? = nil,
                                  using io: ProcessIO) async throws -> [Library] {
         let checkouts = Dictionary(uniqueKeysWithValues: checkouts.map {
             ($0.name.lowercased(), $0)
@@ -143,7 +138,7 @@ public struct LicenseGen {
                                 if packages[rootPackagePath]?.description.targets.map(\.name).contains(name) ?? false {
                                     continue
                                 }
-                                logger?.warning("missing checkout: \(package.description.name)")
+                                TaskValues.logger?.warning("missing checkout: \(package.description.name)")
                                 continue
                             }
                             missingProducts.remove(name)
@@ -159,7 +154,7 @@ public struct LicenseGen {
                             return dep.location.url.deletingPathExtension().lastPathComponent
                         }
                         guard let checkout = checkouts[dirname.lowercased()] else {
-                            logger?.warning("missing checkout: \(packageName)")
+                            TaskValues.logger?.warning("missing checkout: \(packageName)")
                             return
                         }
 
@@ -186,7 +181,7 @@ public struct LicenseGen {
 
         if !missingProducts.isEmpty {
             let libs = missingProducts.sorted()
-            logger?.error("missing library found: \(libs.joined(separator: ", "))")
+            TaskValues.logger?.error("missing library found: \(libs.joined(separator: ", "))")
             throw Error.missingLibrary(libs)
         }
         return Array(libraries)
@@ -194,7 +189,6 @@ public struct LicenseGen {
 
     static func generateLicense(for library: Library,
                                 modifiers: inout [String: Options.Config.Setting]?,
-                                logger: Logger? = nil,
                                 using io: FileIO) throws -> License? {
         let missingAsError: Bool
         let candidates: [String]
@@ -215,7 +209,7 @@ public struct LicenseGen {
         for c in candidates {
             let path = library.checkout.path.appendingPathComponent(c)
             guard io.isExists(at: path) else { continue }
-            let content = try logging(logger) {
+            let content = try logging {
                 try io.readContents(at: path)
             }
             return License(source: library, name: library.name, content: .init(version: nil, body: content))
@@ -225,7 +219,7 @@ public struct LicenseGen {
             ? "(\(candidates.joined(separator: " | ")))"
             : "\(candidates.joined())"
 
-        logger?.critical("""
+        TaskValues.logger?.critical("""
         missing license: \(library.name), \
         location \(library.checkout.path)\(candidateMessage)
         """)
@@ -235,16 +229,5 @@ public struct LicenseGen {
         }
 
         return nil
-    }
-}
-
-func logging<T>(_ logger: Logger?, message: @autoclosure () -> String? = nil,
-                function: StaticString = #function, line: UInt = #line,
-                _ closure: () throws -> T) rethrows -> T {
-    do {
-        return try closure()
-    } catch let e {
-        logger?.critical("\(message() ?? "Unexpected error")[\(function)L:\(line)]")
-        throw e
     }
 }

@@ -2,6 +2,7 @@ import Foundation
 import ArgumentParser
 import Logging
 import LicenseGenKit
+import LicenseGenEntity
 
 public struct LicenseGenCommand: ParsableCommand {
     @OptionGroup
@@ -12,13 +13,15 @@ public struct LicenseGenCommand: ParsableCommand {
     public mutating func run() async throws {
         LoggingSystem.bootstrap(StreamLogHandler.standardError)
         let logger = Logger(label: "lisencegen")
-        try await LicenseGen(logger: logger).run(
-            with: Options(checkoutsPaths: try options.validatedCheckoutsPaths().map(\.url),
-                          packagePaths: options.packagePaths.map(\.url),
-                          outputPath: options.outputPath?.url,
-                          outputFormat: try options.validatedOutputFormat(),
-                          perProducts: options.perProducts,
-                          config: try options.config ?? .default())
-        )
+        try await TaskValues.$logger.withValue(logger) {
+            try await LicenseGen().run(
+                with: Options(checkoutsPaths: try options.validatedCheckoutsPaths().map(\.url),
+                              packagePaths: options.packagePaths.map(\.url),
+                              outputPath: options.outputPath?.url,
+                              outputFormat: try options.validatedOutputFormat(),
+                              perProducts: options.perProducts,
+                              config: try options.config ?? .default())
+            )
+        }
     }
 }

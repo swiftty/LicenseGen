@@ -44,14 +44,16 @@ let package = Package(
 
         // MARK: -
         .target(
-            name: "LicenseGenEntity"),
+            name: "LicenseGenEntity",
+            dependencies: [
+                .product(name: "Logging", package: "swift-log")
+            ]),
 
         .target(
             name: "LicenseGenSwiftPMProxy",
             dependencies: [
                 "LicenseGenEntity",
                 .product(name: "SwiftPM", package: "swift-package-manager"),
-                .product(name: "Logging", package: "swift-log")
             ]),
 
         .target(

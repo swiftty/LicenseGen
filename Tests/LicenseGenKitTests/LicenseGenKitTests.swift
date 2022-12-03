@@ -84,7 +84,7 @@ final class LicenseGenKitTests: XCTestCase {
             URL(fileURLWithPath: "/checkoutsA"),
             URL(fileURLWithPath: "/checkoutsB")
         ]
-        let contents = try LicenseGen.findCheckoutContents(in: checkoutsPaths, logger: nil, using: fs)
+        let contents = try LicenseGen.findCheckoutContents(in: checkoutsPaths, using: fs)
 
         XCTAssertEqual(contents.map(\.name), [
             "PackageA",
