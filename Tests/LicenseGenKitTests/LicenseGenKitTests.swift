@@ -1,6 +1,7 @@
 import XCTest
 @testable import LicenseGenKit
 @testable import LicenseGenSwiftPMProxy
+import LicenseGenEntity
 import TSCBasic
 import TSCTestSupport
 
@@ -103,8 +104,8 @@ final class LicenseGenKitTests: XCTestCase {
                                  fixture: "collect_library/ArgumentParser.Package.swift.json")
 
         let checkouts = [
-            CheckoutContent(path: URL(fileURLWithPath: "/checkouts/LicenseGen")),
-            CheckoutContent(path: URL(fileURLWithPath: "/checkouts/swift-argument-parser"))
+            Checkout(path: URL(fileURLWithPath: "/checkouts/LicenseGen")),
+            Checkout(path: URL(fileURLWithPath: "/checkouts/swift-argument-parser"))
         ]
 
         let rootPackagePath = URL(fileURLWithPath: "/")

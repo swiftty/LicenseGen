@@ -64,8 +64,8 @@ public struct LicenseGen {
     }
 
     static func findCheckoutContents(in checkoutsPaths: [URL],
-                                     using io: FileIO) throws -> [CheckoutContent] {
-        var checkouts: [CheckoutContent] = []
+                                     using io: FileIO) throws -> [Checkout] {
+        var checkouts: [Checkout] = []
         for checkoutsPath in checkoutsPaths {
             let contents = try logging {
                 try io.getDirectoryContents(at: checkoutsPath)
@@ -79,7 +79,7 @@ public struct LicenseGen {
 
     static func collectLibraries(for rootPackagePath: URL,
                                  spmVersion: String,
-                                 with checkouts: [CheckoutContent],
+                                 with checkouts: [Checkout],
                                  using io: ProcessIO) async throws -> [Library] {
         let checkouts = Dictionary(uniqueKeysWithValues: checkouts.map {
             ($0.name.lowercased(), $0)

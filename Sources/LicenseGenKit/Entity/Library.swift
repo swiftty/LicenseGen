@@ -1,16 +1,17 @@
 import Foundation
+import LicenseGenEntity
 
 protocol Library {
-    var checkout: CheckoutContent { get }
+    var checkout: Checkout { get }
     var name: String { get }
 }
 
 // MARK: -
 struct SpecifiedLibrary: Hashable, Library {
-    var checkout: CheckoutContent
+    var checkout: Checkout
     var name: String
 }
 
-extension CheckoutContent: Library {
-    var checkout: CheckoutContent { self }
+extension Checkout: Library {
+    var checkout: Checkout { self }
 }
