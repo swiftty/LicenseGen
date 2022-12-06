@@ -1,66 +1,102 @@
-// swift-tools-version:5.3
+// swift-tools-version:5.7
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
 
 let package = Package(
     name: "LicenseGen",
-    platforms: [.macOS(.v10_15)],
+    platforms: [.macOS(.v11)],
     products: [
-        .executable(name: "licensegen",
-                    targets: ["licensegen"]),
-        .library(name: "LicenseGenKit",
-                 targets: ["LicenseGenKit"])
+        .executable(
+            name: "licensegen",
+            targets: ["licensegen"]),
+        .library(
+            name: "LicenseGenKit",
+            targets: ["LicenseGenKit"])
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-argument-parser",
-                 from: "1.0.0"),
+//        .package(
+//            url: "https://github.com/apple/swift-package-manager",
+//            revision: "swift-5.7.1-RELEASE"),
 
-        .package(url: "https://github.com/jpsim/Yams.git",
-                 from: "4.0.0"),
+        .package(
+            url: "https://github.com/apple/swift-argument-parser",
+            from: "1.1.0"),
 
-        .package(url: "https://github.com/apple/swift-log.git",
-                 from: "1.0.0"),
+        .package(
+            url: "https://github.com/jpsim/Yams.git",
+            from: "4.0.0"),
 
-        .package(url: "https://github.com/apple/swift-tools-support-core.git",
-                 from: "0.2.0")
+        .package(
+            url: "https://github.com/apple/swift-log.git",
+            from: "1.0.0"),
+
+        .package(
+            url: "https://github.com/apple/swift-tools-support-core.git",
+            from: "0.2.0")
     ],
     targets: [
-        .target(name: "licensegen",
-                dependencies: [
-                    "LicenseGenCommand"
-                ]),
-        .target(name: "LicenseGenCommand",
-                dependencies: [
-                    "LicenseGenKit",
-                    "Yams",
-                    .product(name: "ArgumentParser",
-                             package: "swift-argument-parser")
-                ]),
-        .target(name: "LicenseGenKit",
-                dependencies: [
-                    .product(name: "Logging", package: "swift-log")
-                ]),
+        .executableTarget(
+            name: "licensegen",
+            dependencies: [
+                "LicenseGenCommand"
+            ]),
 
-        .testTarget(name: "licensegenTests",
-                    dependencies: ["licensegen"],
-                    resources: [.process("fixtures")]),
-        .testTarget(name: "LicenseGenCommandTests",
-                    dependencies: [
-                        "LicenseGenCommand",
-                        .product(name: "SwiftToolsSupport-auto",
-                                 package: "swift-tools-support-core"),
-                        .product(name: "TSCTestSupport",
-                                 package: "swift-tools-support-core")
-                    ]),
-        .testTarget(name: "LicenseGenKitTests",
-                    dependencies: [
-                        "LicenseGenKit",
-                        .product(name: "SwiftToolsSupport-auto",
-                                 package: "swift-tools-support-core"),
-                        .product(name: "TSCTestSupport",
-                                 package: "swift-tools-support-core")
-                    ],
-                    resources: [.process("fixtures")])
+        // MARK: -
+        .target(
+            name: "LicenseGenEntity",
+            dependencies: [
+                .product(name: "Logging", package: "swift-log")
+            ]),
+
+        .target(
+            name: "LicenseGenSwiftPMProxy",
+            dependencies: [
+                "LicenseGenEntity"
+            ]),
+
+        .target(
+            name: "LicenseGenCommand",
+            dependencies: [
+                "LicenseGenKit",
+                "Yams",
+                .product(name: "ArgumentParser",
+                         package: "swift-argument-parser")
+            ]),
+        .target(
+            name: "LicenseGenKit",
+            dependencies: [
+                "LicenseGenEntity",
+                "LicenseGenSwiftPMProxy",
+                .product(name: "Logging", package: "swift-log")
+            ]),
+
+        .testTarget(
+            name: "licensegenTests",
+            dependencies: ["licensegen"],
+            resources: [.process("fixtures")]),
+        .testTarget(
+            name: "LicenseGenCommandTests",
+            dependencies: [
+                "LicenseGenCommand",
+                .product(name: "SwiftToolsSupport-auto",
+                         package: "swift-tools-support-core"),
+                .product(name: "TSCTestSupport",
+                         package: "swift-tools-support-core")
+            ]),
+        .testTarget(
+            name: "LicenseGenKitTests",
+            dependencies: [
+                "LicenseGenKit",
+                .product(name: "SwiftToolsSupport-auto",
+                         package: "swift-tools-support-core"),
+                .product(name: "TSCTestSupport",
+                         package: "swift-tools-support-core")
+            ],
+            resources: [.process("fixtures")]),
+
+        .testTarget(
+            name: "LicenseGenSwiftPMProxyTests",
+            dependencies: ["LicenseGenSwiftPMProxy"])
     ]
 )

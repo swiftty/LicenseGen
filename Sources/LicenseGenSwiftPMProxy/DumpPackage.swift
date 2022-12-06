@@ -1,6 +1,50 @@
 import Foundation
+import LicenseGenEntity
 
-struct PackageDecoder {
+public struct DumpPackage: ProxyRequest {
+    public let path: URL
+    public let spmVersion: String
+
+    public init(path: URL, spmVersion: String) {
+        self.path = path
+        self.spmVersion = spmVersion
+    }
+
+    public func send(using io: any ProcessIO) async throws -> Package {
+        let data = try await logging { try await readData(using: io) }
+        let decoder = PackageDecoder.from(spmVersion)
+        let decoded = try logging { try decoder.decode(from: data) }
+
+        return Package(
+            name: decoded.name,
+            products: decoded.products.map { p in
+                .init(name: p.name, targets: p.targets)
+            },
+            dependencies: decoded.dependencies.map { d in
+                .init(identity: d.name, location: .remote(d.url))
+            },
+            targets: decoded.targets.map { t in
+                .init(name: t.name, dependencies: t.dependencies.map { d in
+                    switch d {
+                    case .byName(let name): return .byName(name)
+                    case .product(let name, let package): return .product(name: name, package: package)
+                    case .target(let name): return .target(name: name)
+                    }
+                })
+            }
+        )
+    }
+
+    private func readData(using io: any ProcessIO) async throws -> Data {
+        var shell = io.shell("/usr/bin/env", "swift", "package", "dump-package")
+        shell.currentDirectoryURL = path
+
+        return try await shell()
+    }
+}
+
+// MARK: - decoder
+private struct PackageDecoder {
     static func from(_ version: String) -> PackageDecoder {
         func findDecoder() -> (Data, JSONDecoder) throws -> PackageDescription {
             func make<D: Decodable>(_ type: D.Type) -> (Data, JSONDecoder) throws -> D {
@@ -24,7 +68,7 @@ struct PackageDecoder {
     }
 }
 
-protocol PackageDescription {
+private protocol PackageDescription {
     static var version: String { get }
     var name: String { get }
     var products: [PackageProduct] { get }
@@ -32,17 +76,17 @@ protocol PackageDescription {
     var targets: [PackageTarget] { get }
 }
 
-struct PackageProduct: Decodable {
+private struct PackageProduct: Decodable {
     var name: String
     var targets: [String]
 }
 
-struct PackageDependency: Decodable {
+private struct PackageDependency: Decodable {
     var name: String
     var url: URL
 }
 
-struct PackageTarget: Decodable {
+private struct PackageTarget: Decodable {
     var name: String
     var dependencies: [Dependency]
 

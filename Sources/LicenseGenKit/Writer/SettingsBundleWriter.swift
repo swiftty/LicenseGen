@@ -1,5 +1,5 @@
 import Foundation
-import Logging
+import LicenseGenEntity
 
 struct SettingsBundleWriter: OutputWriter {
     private let prefix: String
@@ -8,7 +8,7 @@ struct SettingsBundleWriter: OutputWriter {
         self.prefix = prefix
     }
 
-    func write(_ licenses: [License], to outputPath: URL?, logger: Logger?, using io: FileIO) throws {
+    func write(_ licenses: [License], to outputPath: URL?, using io: FileIO) throws {
         let index = try encodeIndexPlist(with: licenses)
         let children = try licenses.map {
             ($0.name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? $0.name,
@@ -30,19 +30,19 @@ struct SettingsBundleWriter: OutputWriter {
                 childDirectory(in: base).appendingPathComponent("\(key).plist")
             }
 
-            logger?.info("creating... \(prefix).plist")
+            TaskValues.logger?.info("creating... \(prefix).plist")
             let tmp = try io.createTmpDirectory()
             try io.writeContents(index, to: indexFile(in: tmp))
 
             try io.createDirectory(at: childDirectory(in: tmp))
 
             for (key, child) in children {
-                logger?.info("creating... \(prefix)/\(key).plist")
+                TaskValues.logger?.info("creating... \(prefix)/\(key).plist")
                 try io.writeContents(child, to: childFile(for: key, in: tmp))
             }
 
             if io.isExists(at: outputPath) {
-                logger?.info("removing... current \(prefix)")
+                TaskValues.logger?.info("removing... current \(prefix)")
                 if case let path = indexFile(in: outputPath), io.isExists(at: path) {
                     try io.remove(at: path)
                 }
@@ -50,24 +50,24 @@ struct SettingsBundleWriter: OutputWriter {
                     try io.remove(at: path)
                 }
             } else {
-                logger?.info("creating... \(outputPath.lastPathComponent)")
+                TaskValues.logger?.info("creating... \(outputPath.lastPathComponent)")
                 try io.createDirectory(at: outputPath)
             }
 
-            logger?.info("finalizing...")
+            TaskValues.logger?.info("finalizing...")
             try io.move(indexFile(in: tmp), to: indexFile(in: outputPath))
             try io.move(childDirectory(in: tmp), to: childDirectory(in: outputPath))
 
             do {
                 try io.remove(at: tmp)
             } catch {
-                logger?.warning("removing tmp directory. reason: \(error)")
+                TaskValues.logger?.warning("removing tmp directory. reason: \(error)")
             }
         } else {
-            logger?.info("/// \(prefix).plist")
+            TaskValues.logger?.info("/// \(prefix).plist")
             print(String(data: index, encoding: .utf8) ?? "")
             for (key, child) in children {
-                logger?.info("/// \(prefix)/\(key).plist")
+                TaskValues.logger?.info("/// \(prefix)/\(key).plist")
                 print(String(data: child, encoding: .utf8) ?? "")
             }
         }

@@ -1,5 +1,7 @@
 import Foundation
 import Logging
+import LicenseGenEntity
+import LicenseGenSwiftPMProxy
 
 public struct LicenseGen {
     public enum Error: Swift.Error {
@@ -11,22 +13,21 @@ public struct LicenseGen {
     }
 
     private let fileIO = DefaultFileIO()
-    private let logger: Logger
+    private let processIO: any ProcessIO = LicenseGenSwiftPMProxy.processIO
 
-    public init(logger: Logger) {
-        self.logger = logger
-    }
+    public init() {}
 
-    public func run(with options: Options) throws {
+    public func run(with options: Options) async throws {
         try Self.validateOptions(options, using: fileIO)
 
-        let checkouts = try Self.findCheckoutContents(in: options.checkoutsPaths, logger: logger, using: fileIO)
+        let checkouts = try Self.findCheckoutContents(in: options.checkoutsPaths, using: fileIO)
         var libraries: [Library]
         if !options.packagePaths.isEmpty {
-            let packageDecoder = try PackageDecoder.from(fileIO.packageVersion())
-            libraries = try options.packagePaths.flatMap { path in
-                try Self.collectLibraries(for: path, with: checkouts,
-                                             packageDecoder: packageDecoder, logger: logger, using: fileIO)
+            let version = try await GetVersion().send(using: processIO)
+            libraries = []
+            for path in options.packagePaths {
+                let libs = try await Self.collectLibraries(for: path, spmVersion: version, with: checkouts, using: processIO)
+                libraries.append(contentsOf: libs)
             }
             if !options.perProducts {
                 libraries = libraries.map(\.checkout).uniqued()
@@ -37,10 +38,10 @@ public struct LicenseGen {
 
         var modifiers = options.config?.modifiers
         let licenses = try libraries.compactMap {
-            try Self.generateLicense(for: $0, modifiers: &modifiers, logger: logger, using: fileIO)
+            try Self.generateLicense(for: $0, modifiers: &modifiers, using: fileIO)
         }
         modifiers?.keys.forEach { key in
-            logger.warning(#"Unused settings found: "\#(key)""#)
+            TaskValues.logger?.warning(#"Unused settings found: "\#(key)""#)
         }
 
         let writer: OutputWriter = {
@@ -49,9 +50,9 @@ public struct LicenseGen {
                 return SettingsBundleWriter(prefix: prefix)
             }
         }()
-        try writer.write(licenses.sorted(), to: options.outputPath, logger: logger, using: fileIO)
+        try writer.write(licenses.sorted(), to: options.outputPath, using: fileIO)
 
-        logger.info("done!")
+        TaskValues.logger?.info("done!")
     }
 
     static func validateOptions(_ options: Options, using io: FileIO) throws {
@@ -63,11 +64,10 @@ public struct LicenseGen {
     }
 
     static func findCheckoutContents(in checkoutsPaths: [URL],
-                                     logger: Logger?,
-                                     using io: FileIO) throws -> [CheckoutContent] {
-        var checkouts: [CheckoutContent] = []
+                                     using io: FileIO) throws -> [Checkout] {
+        var checkouts: [Checkout] = []
         for checkoutsPath in checkoutsPaths {
-            let contents = try logging(logger) {
+            let contents = try logging {
                 try io.getDirectoryContents(at: checkoutsPath)
             }
             for path in contents where io.isDirectory(at: path) {
@@ -78,125 +78,17 @@ public struct LicenseGen {
     }
 
     static func collectLibraries(for rootPackagePath: URL,
-                                 with checkouts: [CheckoutContent],
-                                 packageDecoder: PackageDecoder,
-                                 logger: Logger? = nil,
-                                 using io: FileIO) throws -> [Library] {
-        let checkouts = Dictionary(uniqueKeysWithValues: checkouts.map {
-            ($0.name.lowercased(), $0)
-        })
-
-        struct PackageInfo {
-            var description: PackageDescription
-            var dirname: String
-        }
-        struct CheckKey: Hashable {
-            var packageName: String
-            var name: String
-        }
-
-        var packages: [URL: PackageInfo] = [:]
-        var libraries: Set<SpecifiedLibrary> = []
-        var collectedTargets: Set<CheckKey> = []
-        var missingProducts: Set<String> = []
-
-        func dumpPackage(path: URL, for specifiedProduct: String? = nil) throws {
-            let package: PackageInfo
-            if let p = packages[path] {
-                package = p
-            } else {
-                logger?.info("dump package \(path.lastPathComponent) with swiftpm")
-                let data = try logging(logger) {
-                    try io.dumpPackage(at: path)
-                }
-                let desc = try logging(logger) {
-                    try packageDecoder.decode(from: data)
-                }
-                package = .init(description: desc, dirname: path.lastPathComponent)
-                packages[path] = package
-            }
-
-            func collectFromDependencies(for targetName: String) throws {
-                let key = CheckKey(packageName: package.description.name, name: targetName)
-                if collectedTargets.contains(key) {
-                    missingProducts.remove(targetName)
-                    return
-                }
-                collectedTargets.insert(key)
-                guard let target = package.description.targets.first(where: { $0.name == targetName }) else {
-                    return
-                }
-                missingProducts.remove(targetName)
-
-                for dep in target.dependencies {
-                    switch dep {
-                    case .byName(let name), .target(let name):
-                        if dep == .byName(name),
-                           let checkout = checkouts[name.lowercased()],
-                           packages[checkout.path] == nil {
-
-                            libraries.insert(.init(checkout: checkout, name: name))
-                            try dumpPackage(path: checkout.path, for: name)
-                            continue
-                        }
-                        missingProducts.insert(name)
-                        for product in package.description.products where product.targets.contains(name) {
-                            guard let checkout = checkouts[package.dirname.lowercased()] else {
-                                if packages[rootPackagePath]?.description.targets.map(\.name).contains(name) ?? false {
-                                    continue
-                                }
-                                logger?.warning("missing checkout: \(package.description.name)")
-                                continue
-                            }
-                            missingProducts.remove(name)
-                            libraries.insert(.init(checkout: checkout, name: product.name))
-                        }
-                        try collectFromDependencies(for: name)
-
-                    case .product(let name, let packageName):
-                        let packageName = packageName ?? name
-                        var dirname: String {
-                            guard let dep = package.description.dependencies
-                                    .first(where: { $0.name == packageName }) else { return packageName }
-                            return dep.url.deletingPathExtension().lastPathComponent
-                        }
-                        guard let checkout = checkouts[dirname.lowercased()] else {
-                            logger?.warning("missing checkout: \(packageName)")
-                            return
-                        }
-
-                        missingProducts.remove(name)
-                        libraries.insert(.init(checkout: checkout, name: name))
-
-                        try dumpPackage(path: checkout.path, for: name)
-                    }
-                }
-            }
-
-            for p in package.description.products where specifiedProduct.map({ $0 == p.name }) ?? true {
-                for t in p.targets {
-                    try collectFromDependencies(for: t)
-                }
-            }
-        }
-
-        try dumpPackage(path: rootPackagePath)
-
-        for lib in libraries {
-            missingProducts.remove(lib.name)
-        }
-
-        if !missingProducts.isEmpty {
-            let libs = missingProducts.sorted()
-            logger?.error("missing library found: \(libs.joined(separator: ", "))")
-            throw Error.missingLibrary(libs)
-        }
+                                 spmVersion: String,
+                                 with checkouts: [Checkout],
+                                 using io: ProcessIO) async throws -> [Library] {
+        let collector = LibraryCollector(checkouts: checkouts, spmVersion: spmVersion, using: io)
+        try await collector.collect(at: rootPackagePath)
+        let libraries = await collector.libraries
         return Array(libraries)
     }
 
     static func generateLicense(for library: Library,
                                 modifiers: inout [String: Options.Config.Setting]?,
-                                logger: Logger? = nil,
                                 using io: FileIO) throws -> License? {
         let missingAsError: Bool
         let candidates: [String]
@@ -217,7 +109,7 @@ public struct LicenseGen {
         for c in candidates {
             let path = library.checkout.path.appendingPathComponent(c)
             guard io.isExists(at: path) else { continue }
-            let content = try logging(logger) {
+            let content = try logging {
                 try io.readContents(at: path)
             }
             return License(source: library, name: library.name, content: .init(version: nil, body: content))
@@ -227,7 +119,7 @@ public struct LicenseGen {
             ? "(\(candidates.joined(separator: " | ")))"
             : "\(candidates.joined())"
 
-        logger?.critical("""
+        TaskValues.logger?.critical("""
         missing license: \(library.name), \
         location \(library.checkout.path)\(candidateMessage)
         """)
@@ -240,13 +132,122 @@ public struct LicenseGen {
     }
 }
 
-func logging<T>(_ logger: Logger?, message: @autoclosure () -> String? = nil,
-                function: StaticString = #function, line: UInt = #line,
-                _ closure: () throws -> T) rethrows -> T {
-    do {
-        return try closure()
-    } catch let e {
-        logger?.critical("\(message() ?? "Unexpected error")[\(function)L:\(line)]")
-        throw e
+// MARK: -
+final class LibraryCollector {
+    private actor Data {
+        var libraries: Set<SpecifiedLibrary> = []
+        private var packages: [URL: Package] = [:]
+        private var editingPacakges: Set<URL> = []
+        private var collectedTargets: Set<TargetKey> = []
+
+        private struct TargetKey: Hashable {
+            var target: String
+            var package: String
+        }
+
+        func package(for path: URL, or newPackage: () async throws -> Package) async rethrows -> Package {
+            while editingPacakges.contains(path) {
+                await Task.yield()
+            }
+            if let p = packages[path] {
+                return p
+            }
+            editingPacakges.insert(path)
+            let p = try await newPackage()
+            editingPacakges.remove(path)
+            packages[path] = p
+            return p
+        }
+
+        func isCollected(_ targetName: String, package: String) -> Bool {
+            collectedTargets.contains(.init(target: targetName, package: package))
+        }
+
+        func collect(_ targetName: String, package: String) {
+            collectedTargets.insert(.init(target: targetName, package: package))
+        }
+
+        func insertLibrary(_ name: String, with checkout: Checkout) {
+            libraries.insert(.init(checkout: checkout, name: name))
+        }
+    }
+
+    var libraries: Set<SpecifiedLibrary> {
+        get async { await data.libraries }
+    }
+
+    let checkouts: [String: Checkout]
+    let spmVersion: String
+    let io: ProcessIO
+
+    private let data = Data()
+
+    init(checkouts: [Checkout], spmVersion: String, using io: ProcessIO) {
+        self.checkouts = .init(uniqueKeysWithValues: checkouts.map { ($0.path.lastPathComponent.lowercased(), $0) })
+        self.spmVersion = spmVersion
+        self.io = io
+    }
+
+    func collect(at path: URL, only targetName: String? = nil) async throws {
+        assert(path.isFileURL)
+
+        let package = try await data.package(for: path) {
+            TaskValues.logger?.info("dump package \(path.lastPathComponent) with swiftpm")
+
+            return try await DumpPackage(path: path, spmVersion: spmVersion).send(using: io)
+        }
+
+        if let targetName, await data.isCollected(targetName, package: package.name) {
+            return
+        }
+
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for product in package.products {
+                let allTargets = Dictionary(uniqueKeysWithValues: package.targets.map { ($0.name, $0) })
+
+                var targetNames = Set(
+                    allTargets.keys.lazy
+                        .filter { $0 == (targetName ?? $0) }
+                        .filter { product.targets.contains($0) }
+                )
+                while let targetName = targetNames.popFirst(), let target = allTargets[targetName] {
+                    if await data.isCollected(target.name, package: package.name) {
+                        continue
+                    }
+                    await data.collect(target.name, package: package.name)
+                    for dep in target.dependencies {
+                        switch dep {
+                        case .byName(let name), .target(let name):
+                            let checkout: Checkout
+                            if dep == .byName(name), let c = checkouts[name.lowercased()] {
+                                checkout = c
+                            } else if package.products.contains(where: { $0.name == name }),
+                                      let c = checkouts[path.lastPathComponent.lowercased()] {
+                                checkout = c
+                            } else {
+                                targetNames.insert(name)
+                                continue
+                            }
+                            await data.insertLibrary(name, with: checkout)
+
+                            group.addTask {
+                                try await self.collect(at: checkout.path, only: name)
+                            }
+
+                        case .product(let name, let identity):
+                            guard let identity, let checkout = checkouts[identity.lowercased()] else {
+                                continue
+                            }
+                            await data.insertLibrary(name, with: checkout)
+
+                            group.addTask {
+                                try await self.collect(at: checkout.path, only: name)
+                            }
+                        }
+                    }
+                }
+            }
+            try await group.waitForAll()
+        }
     }
 }
