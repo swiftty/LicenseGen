@@ -11,8 +11,6 @@ public struct DumpPackage: ProxyRequest {
     }
 
     public func send(using io: any ProcessIO) async throws -> Package {
-        TaskValues.logger?.info("dump package \(path.lastPathComponent) with swiftpm")
-
         let data = try await logging { try await readData(using: io) }
         let decoder = PackageDecoder.from(spmVersion)
         let decoded = try logging { try decoder.decode(from: data) }

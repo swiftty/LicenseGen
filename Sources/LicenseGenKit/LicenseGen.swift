@@ -81,109 +81,9 @@ public struct LicenseGen {
                                  spmVersion: String,
                                  with checkouts: [Checkout],
                                  using io: ProcessIO) async throws -> [Library] {
-        let checkouts = Dictionary(uniqueKeysWithValues: checkouts.map {
-            ($0.name.lowercased(), $0)
-        })
-
-        struct PackageInfo {
-            var description: LicenseGenEntity.Package
-            var dirname: String
-        }
-        struct CheckKey: Hashable {
-            var packageName: String
-            var name: String
-        }
-
-        var packages: [URL: PackageInfo] = [:]
-        var libraries: Set<SpecifiedLibrary> = []
-        var collectedTargets: Set<CheckKey> = []
-        var missingProducts: Set<String> = []
-
-        func dumpPackage(path: URL, for specifiedProduct: String? = nil) async throws {
-            let package: PackageInfo
-            if let p = packages[path] {
-                package = p
-            } else {
-                let p = try await DumpPackage(path: path, spmVersion: spmVersion).send(using: io)
-                package = .init(description: p, dirname: path.lastPathComponent)
-                packages[path] = package
-            }
-
-            func collectFromDependencies(for targetName: String) async throws {
-                let key = CheckKey(packageName: package.description.name, name: targetName)
-                if collectedTargets.contains(key) {
-                    missingProducts.remove(targetName)
-                    return
-                }
-                collectedTargets.insert(key)
-                guard let target = package.description.targets.first(where: { $0.name == targetName }) else {
-                    return
-                }
-                missingProducts.remove(targetName)
-
-                for dep in target.dependencies {
-                    switch dep {
-                    case .byName(let name), .target(let name):
-                        if dep == .byName(name),
-                           let checkout = checkouts[name.lowercased()],
-                           packages[checkout.path] == nil {
-
-                            libraries.insert(.init(checkout: checkout, name: name))
-                            try await dumpPackage(path: checkout.path, for: name)
-                            continue
-                        }
-                        missingProducts.insert(name)
-                        for product in package.description.products where product.targets.contains(name) {
-                            guard let checkout = checkouts[package.dirname.lowercased()] else {
-                                if packages[rootPackagePath]?.description.targets.map(\.name).contains(name) ?? false {
-                                    continue
-                                }
-                                TaskValues.logger?.warning("missing checkout: \(package.description.name)")
-                                continue
-                            }
-                            missingProducts.remove(name)
-                            libraries.insert(.init(checkout: checkout, name: product.name))
-                        }
-                        try await collectFromDependencies(for: name)
-
-                    case .product(let name, let packageName):
-                        let packageName = packageName ?? name
-                        var dirname: String {
-                            guard let dep = package.description.dependencies
-                                    .first(where: { $0.identity == packageName }) else { return packageName }
-                            return dep.location.url.deletingPathExtension().lastPathComponent
-                        }
-                        guard let checkout = checkouts[dirname.lowercased()] else {
-                            TaskValues.logger?.warning("missing checkout: \(packageName)")
-                            return
-                        }
-
-                        missingProducts.remove(name)
-                        libraries.insert(.init(checkout: checkout, name: name))
-
-                        try await dumpPackage(path: checkout.path, for: name)
-                    }
-                }
-            }
-
-            for p in package.description.products where specifiedProduct.map({ $0 == p.name }) ?? true {
-                for t in p.targets {
-                    try await collectFromDependencies(for: t)
-                }
-            }
-        }
-
-        try await dumpPackage(path: rootPackagePath)
-
-        for lib in libraries {
-            missingProducts.remove(lib.name)
-        }
-
-        if !missingProducts.isEmpty {
-            let libs = missingProducts.sorted()
-            TaskValues.logger?.error("missing library found: \(libs.joined(separator: ", "))")
-            throw Error.missingLibrary(libs)
-        }
+        let collector = LibraryCollector(checkouts: checkouts, spmVersion: spmVersion, using: io)
+        try await collector.collect(at: rootPackagePath)
+        let libraries = await collector.libraries
         return Array(libraries)
     }
 
@@ -229,5 +129,92 @@ public struct LicenseGen {
         }
 
         return nil
+    }
+}
+
+// MARK: -
+actor LibraryCollector {
+    var libraries: Set<SpecifiedLibrary> = []
+    private var packages: [URL: Package] = [:]
+    private var collectedTargets: Set<TargetKey> = []
+    private var unresolvedProducts: Set<String> = []
+
+    private struct TargetKey: Hashable {
+        var target: String
+        var package: String
+    }
+
+    let checkouts: [String: Checkout]
+    let spmVersion: String
+    let io: ProcessIO
+
+    init(checkouts: [Checkout], spmVersion: String, using io: ProcessIO) {
+        self.checkouts = .init(uniqueKeysWithValues: checkouts.map { ($0.path.lastPathComponent.lowercased(), $0) })
+        self.spmVersion = spmVersion
+        self.io = io
+    }
+
+    func collect(at path: URL, only targetName: String? = nil) async throws {
+        let package: Package
+        if let p = packages[path] {
+            package = p
+        } else {
+            TaskValues.logger?.info("dump package \(path.lastPathComponent) with swiftpm")
+
+            package = try await DumpPackage(path: path, spmVersion: spmVersion).send(using: io)
+            packages[path] = package
+        }
+
+        if let targetName, collectedTargets.contains(.init(target: targetName, package: package.name)) {
+            return
+        }
+
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for product in package.products {
+                let allTargets = Dictionary(uniqueKeysWithValues: package.targets.map { ($0.name, $0) })
+
+                var targetNames = Set(
+                    allTargets.keys.lazy
+                        .filter { $0 == (targetName ?? $0) }
+                        .filter { product.targets.contains($0) }
+                )
+                while let targetName = targetNames.popFirst(), let target = allTargets[targetName] {
+                    if collectedTargets.contains(.init(target: targetName, package: package.name)) {
+                        continue
+                    }
+                    collectedTargets.insert(.init(target: target.name, package: package.name))
+                    for dep in target.dependencies {
+                        switch dep {
+                        case .byName(let name):
+                            let checkout: Checkout
+                            if let c = checkouts[name.lowercased()] {
+                                checkout = c
+                            } else {
+                                targetNames.insert(name)
+                                continue
+                            }
+                            libraries.insert(.init(checkout: checkout, name: name))
+
+                            group.addTask {
+                                try await self.collect(at: checkout.path, only: name)
+                            }
+
+                        case .target(let name):
+                            targetNames.insert(name)
+
+                        case .product(let name, let identity):
+                            guard let identity, let checkout = checkouts[identity] else {
+                                continue
+                            }
+                            libraries.insert(.init(checkout: checkout, name: name))
+                            group.addTask {
+                                try await self.collect(at: checkout.path, only: name)
+                            }
+                        }
+                    }
+                }
+            }
+            try await group.waitForAll()
+        }
     }
 }
