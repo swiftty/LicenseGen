@@ -133,20 +133,54 @@ public struct LicenseGen {
 }
 
 // MARK: -
-actor LibraryCollector {
-    var libraries: Set<SpecifiedLibrary> = []
-    private var packages: [URL: Package] = [:]
-    private var collectedTargets: Set<TargetKey> = []
-    private var unresolvedProducts: Set<String> = []
+final class LibraryCollector {
+    private actor Data {
+        var libraries: Set<SpecifiedLibrary> = []
+        private var packages: [URL: Package] = [:]
+        private var editingPacakges: Set<URL> = []
+        private var collectedTargets: Set<TargetKey> = []
 
-    private struct TargetKey: Hashable {
-        var target: String
-        var package: String
+        private struct TargetKey: Hashable {
+            var target: String
+            var package: String
+        }
+
+        func package(for path: URL, or newPackage: () async throws -> Package) async rethrows -> Package {
+            while editingPacakges.contains(path) {
+                await Task.yield()
+            }
+            if let p = packages[path] {
+                return p
+            }
+            editingPacakges.insert(path)
+            let p = try await newPackage()
+            editingPacakges.remove(path)
+            packages[path] = p
+            return p
+        }
+
+        func isCollected(_ targetName: String, package: String) -> Bool {
+            collectedTargets.contains(.init(target: targetName, package: package))
+        }
+
+        func collect(_ targetName: String, package: String) {
+            collectedTargets.insert(.init(target: targetName, package: package))
+        }
+
+        func insertLibrary(_ name: String, with checkout: Checkout) {
+            libraries.insert(.init(checkout: checkout, name: name))
+        }
+    }
+
+    var libraries: Set<SpecifiedLibrary> {
+        get async { await data.libraries }
     }
 
     let checkouts: [String: Checkout]
     let spmVersion: String
     let io: ProcessIO
+
+    private let data = Data()
 
     init(checkouts: [Checkout], spmVersion: String, using io: ProcessIO) {
         self.checkouts = .init(uniqueKeysWithValues: checkouts.map { ($0.path.lastPathComponent.lowercased(), $0) })
@@ -155,17 +189,15 @@ actor LibraryCollector {
     }
 
     func collect(at path: URL, only targetName: String? = nil) async throws {
-        let package: Package
-        if let p = packages[path] {
-            package = p
-        } else {
+        assert(path.isFileURL)
+
+        let package = try await data.package(for: path) {
             TaskValues.logger?.info("dump package \(path.lastPathComponent) with swiftpm")
 
-            package = try await DumpPackage(path: path, spmVersion: spmVersion).send(using: io)
-            packages[path] = package
+            return try await DumpPackage(path: path, spmVersion: spmVersion).send(using: io)
         }
 
-        if let targetName, collectedTargets.contains(.init(target: targetName, package: package.name)) {
+        if let targetName, await data.isCollected(targetName, package: package.name) {
             return
         }
 
@@ -179,34 +211,35 @@ actor LibraryCollector {
                         .filter { product.targets.contains($0) }
                 )
                 while let targetName = targetNames.popFirst(), let target = allTargets[targetName] {
-                    if collectedTargets.contains(.init(target: targetName, package: package.name)) {
+                    if await data.isCollected(target.name, package: package.name) {
                         continue
                     }
-                    collectedTargets.insert(.init(target: target.name, package: package.name))
+                    await data.collect(target.name, package: package.name)
                     for dep in target.dependencies {
                         switch dep {
-                        case .byName(let name):
+                        case .byName(let name), .target(let name):
                             let checkout: Checkout
-                            if let c = checkouts[name.lowercased()] {
+                            if dep == .byName(name), let c = checkouts[name.lowercased()] {
+                                checkout = c
+                            } else if package.products.contains(where: { $0.name == name }),
+                                      let c = checkouts[path.lastPathComponent.lowercased()] {
                                 checkout = c
                             } else {
                                 targetNames.insert(name)
                                 continue
                             }
-                            libraries.insert(.init(checkout: checkout, name: name))
+                            await data.insertLibrary(name, with: checkout)
 
                             group.addTask {
                                 try await self.collect(at: checkout.path, only: name)
                             }
 
-                        case .target(let name):
-                            targetNames.insert(name)
-
                         case .product(let name, let identity):
-                            guard let identity, let checkout = checkouts[identity] else {
+                            guard let identity, let checkout = checkouts[identity.lowercased()] else {
                                 continue
                             }
-                            libraries.insert(.init(checkout: checkout, name: name))
+                            await data.insertLibrary(name, with: checkout)
+
                             group.addTask {
                                 try await self.collect(at: checkout.path, only: name)
                             }
