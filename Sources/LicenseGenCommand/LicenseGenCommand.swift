@@ -4,7 +4,13 @@ import Logging
 import LicenseGenKit
 import LicenseGenEntity
 
-public struct LicenseGenCommand: ParsableCommand {
+public struct LicenseGenCommand: AsyncParsableCommand {
+    public static var configuration: CommandConfiguration {
+        CommandConfiguration(
+            commandName: "licensegen"
+        )
+    }
+
     @OptionGroup
     var options: CommandOptions
 
