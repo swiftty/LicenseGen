@@ -15,9 +15,9 @@ let package = Package(
             targets: ["LicenseGenKit"])
     ],
     dependencies: [
-        .package(
-            url: "https://github.com/apple/swift-package-manager",
-            revision: "swift-5.7.1-RELEASE"),
+//        .package(
+//            url: "https://github.com/apple/swift-package-manager",
+//            revision: "swift-5.7.1-RELEASE"),
 
         .package(
             url: "https://github.com/apple/swift-argument-parser",
@@ -52,8 +52,7 @@ let package = Package(
         .target(
             name: "LicenseGenSwiftPMProxy",
             dependencies: [
-                "LicenseGenEntity",
-                .product(name: "SwiftPM", package: "swift-package-manager"),
+                "LicenseGenEntity"
             ]),
 
         .target(

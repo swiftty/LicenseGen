@@ -14,6 +14,6 @@ final class LicenseGenSwiftPMProxyTests: XCTestCase {
 
         XCTAssertEqual(package.name, "LicenseGen")
         XCTAssertEqual(package.products.count, 2)
-        XCTAssertEqual(package.dependencies.count, 5)
+        XCTAssertEqual(package.dependencies.count, 4)
     }
 }
