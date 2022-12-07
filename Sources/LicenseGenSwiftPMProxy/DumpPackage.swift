@@ -21,7 +21,7 @@ public struct DumpPackage: ProxyRequest {
                 .init(name: p.name, targets: p.targets)
             },
             dependencies: decoded.dependencies.map { d in
-                .init(identity: d.name, location: .remote(d.url))
+                .init(identity: d.name, displayName: d.displayName, location: .remote(d.url))
             },
             targets: decoded.targets.map { t in
                 .init(name: t.name, dependencies: t.dependencies.map { d in
@@ -83,6 +83,7 @@ private struct PackageProduct: Decodable {
 
 private struct PackageDependency: Decodable {
     var name: String
+    var displayName: String?
     var url: URL
 }
 
@@ -161,7 +162,7 @@ private struct PackageDescription5_5: PackageDescription, Decodable {
             .flatMap(\.values)
             .flatMap { $0 }
             .map {
-                PackageDependency(name: $0.name ?? $0.identity, url: $0.location)
+                PackageDependency(name: $0.identity, displayName: $0.name, url: $0.location)
             }
     }
 
@@ -190,7 +191,8 @@ private struct PackageDescription5_6: PackageDescription, Decodable {
             .flatMap(\.values)
             .flatMap { $0 }
             .map {
-                PackageDependency(name: $0.nameForTargetDependencyResolutionOnly ?? $0.identity,
+                PackageDependency(name: $0.identity,
+                                  displayName: $0.nameForTargetDependencyResolutionOnly,
                                   url: ($0.location.remote?.first ?? $0.location.local?.first)!)
             }
     }
