@@ -207,8 +207,7 @@ final class LibraryCollector {
 
                 var targetNames = Set(
                     allTargets.keys.lazy
-                        .filter { $0 == (targetName ?? $0) }
-                        .filter { product.targets.contains($0) }
+                        .filter { name in targetName.map { $0 == name } ?? product.targets.contains(name) }
                 )
                 while let targetName = targetNames.popFirst(), let target = allTargets[targetName] {
                     if await data.isCollected(target.name, package: package.name) {
@@ -235,7 +234,18 @@ final class LibraryCollector {
                             }
 
                         case .product(let name, let identity):
-                            guard let identity, let checkout = checkouts[identity.lowercased()] else {
+                            func findCheckout() -> Checkout? {
+                                guard let identity else { return nil }
+                                if let c = checkouts[identity.lowercased()] {
+                                    return c
+                                }
+                                if let p = package.dependencies.first(where: { ($0.displayName ?? $0.identity) == identity }),
+                                   let c = checkouts[p.identity.lowercased()] {
+                                    return c
+                                }
+                                return nil
+                            }
+                            guard let checkout = findCheckout() else {
                                 continue
                             }
                             await data.insertLibrary(name, with: checkout)

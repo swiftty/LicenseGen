@@ -35,6 +35,7 @@ extension Package {
 
     public struct Dependency {
         public var identity: String
+        public var displayName: String?
         public var location: Location
 
         public enum Location {
@@ -49,9 +50,11 @@ extension Package {
 
         public init(
             identity: String,
+            displayName: String?,
             location: Location
         ) {
             self.identity = identity
+            self.displayName = displayName
             self.location = location
         }
     }
