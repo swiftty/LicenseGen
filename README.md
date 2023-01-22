@@ -9,8 +9,8 @@ Generate licenses from SwiftPM libraries.
 ```swift
 .binaryTarget(
     name: "LicenseGen",
-    url: "https://github.com/swiftty/LicenseGen/releases/download/0.0.9/LicenseGen.artifactbundle.5.7.zip",
-    checksum: "8a791cbaf6a91f9d733b4cfe5bd5b5633cd7b35249a9f3db534722d866946f50"
+    url: "https://github.com/swiftty/LicenseGen/releases/download/0.0.10/LicenseGen.artifactbundle.5.7.zip",
+    checksum: ""
 ),
 
 .plugin(
