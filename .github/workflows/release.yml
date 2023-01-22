@@ -25,7 +25,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - uses: swiftty/swiftpm-artifactbundle-builder@main
+    - uses: swiftty/swiftpm-artifactbundle-builder@v1
       with:
         swift-version: '5.7'
         depth: 1
@@ -36,16 +36,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - uses: actions/checkout@v3
+    - uses: swiftty/nextversion@v0.0.1
+      id: nextversion
+      with:
+        bump: ${{ github.event.inputs.version }}
     - name: git settings
       run: |
         # https://qiita.com/thaim/items/3d1a4d09ec4a7d8844ce
         git config --local user.name "github-actions[bot]"
         git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
-    - uses: swiftty/nextversion@v0.0.1
-      id: nextversion
-      with:
-        bump: ${{ github.event.inputs.version }}
-    - uses: swiftty/swiftpm-artifactbundle-bundler@main
+    - uses: swiftty/swiftpm-artifactbundle-bundler@v1
       id: bundler
       with:
         variants-version: ${{ steps.nextversion.outputs.next  }}
