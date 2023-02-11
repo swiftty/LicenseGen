@@ -33,7 +33,7 @@ let package = Package(
 
         .package(
             url: "https://github.com/apple/swift-tools-support-core.git",
-            from: "0.4.0")
+            from: "0.5.1")
     ],
     targets: [
         .executableTarget(
