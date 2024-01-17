@@ -20,12 +20,12 @@ jobs:
       with:
         swift-version: "5.7"
     - name: Cache package build dir
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: .build
         key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
     - name: Cache test package build dir
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: Tests/licensegenTests/fixtures/.build
         key: ${{ runner.os }}-fixtures-spm-${{ hashFiles('Tests/licensegenTests/fixtures/Package.resolved') }}
