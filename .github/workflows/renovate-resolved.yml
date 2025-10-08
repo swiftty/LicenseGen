@@ -16,7 +16,7 @@ jobs:
       - uses: ./.github/actions/setup
       - name: Update Package.resolved
         run: |
-          make resolve
+          swift package resolve
       - name: Commit Package.resolved
         run: |
           git add -u
