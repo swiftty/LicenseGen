@@ -51,11 +51,17 @@ private struct PackageDecoder {
                 return { try $1.decode(type, from: $0) }
             }
 
-            if case let d = PackageDescription5_6.self, d.isOlder(than: version) {
-                return make(d)
-            } else if case let d = PackageDescription5_5.self, d.isOlder(than: version) {
-                return make(d)
+            let candidates: [any (PackageDescription & Decodable).Type] = [
+                PackageDescription6_2.self,
+                PackageDescription5_6.self,
+                PackageDescription5_5.self,
+                PackageDescription5_3.self,
+            ]
+
+            for candidate in candidates where candidate.isOlder(than: version) {
+                return make(candidate)
             }
+
             return make(PackageDescription5_3.self)
         }
         return self.init(decoder: findDecoder())
@@ -211,6 +217,48 @@ private struct PackageDescription5_6: PackageDescription, Decodable {
         struct Location: Decodable {
             var remote: [URL]?
             var local: [URL]?
+        }
+    }
+}
+
+// MARK: - 6.2~
+private struct PackageDescription6_2: PackageDescription, Decodable {
+    static let version = "6.2"
+
+    var name: String
+    var products: [PackageProduct]
+    var targets: [PackageTarget]
+    var dependencies: [PackageDependency] {
+        _dependencies
+            .flatMap(\.values)
+            .flatMap { $0 }
+            .map {
+                PackageDependency(name: $0.identity,
+                                  displayName: $0.nameForTargetDependencyResolutionOnly,
+                                  url: ($0.location.remote?.first?.url ?? $0.location.local?.first?.url)!)
+            }
+    }
+
+    private var _dependencies: [[String: [SCM]]]
+
+    private enum CodingKeys: String, CodingKey {
+        case name, products, targets, _dependencies = "dependencies"
+    }
+
+    struct SCM: Decodable {
+        var identity: String
+        var nameForTargetDependencyResolutionOnly: String?
+        var location: Location
+
+        struct Location: Decodable {
+            var remote: [Value]?
+            var local: [Value]?
+
+            struct Value: Decodable {
+                var urlString: String?
+
+                var url: URL? { urlString.flatMap(URL.init(string:)) }
+            }
         }
     }
 }
