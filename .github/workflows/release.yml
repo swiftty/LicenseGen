@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
-      - uses: swiftty/swiftpm-artifactbundle-builder@v3
+      - uses: swiftty/swiftpm-artifactbundle-builder@v4
         with:
           use-xcode: true
           depth: 1
