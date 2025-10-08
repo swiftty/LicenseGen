@@ -21,7 +21,7 @@ let package = Package(
 
         .package(
             url: "https://github.com/apple/swift-argument-parser",
-            from: "1.3.1"),
+            from: "1.6.1"),
 
         .package(
             url: "https://github.com/jpsim/Yams.git",
