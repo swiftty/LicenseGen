@@ -8,7 +8,7 @@ final class LicenseGenSwiftPMProxyTests: XCTestCase {
                 .deletingLastPathComponent()
                 .deletingLastPathComponent()
                 .deletingLastPathComponent(),
-            spmVersion: "5.7")
+            spmVersion: "6.2")
 
         let package = try await request.send(using: processIO)
 

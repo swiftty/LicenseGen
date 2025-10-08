@@ -2,34 +2,29 @@ name: Swift
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   build:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ macos-latest, ubuntu-latest ]
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-15
 
     steps:
-    - uses: actions/checkout@v4
-    - uses: swift-actions/setup-swift@v1
-      with:
-        swift-version: "5.7"
-    - name: Cache package build dir
-      uses: actions/cache@v4
-      with:
-        path: .build
-        key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
-    - name: Cache test package build dir
-      uses: actions/cache@v4
-      with:
-        path: Tests/licensegenTests/fixtures/.build
-        key: ${{ runner.os }}-fixtures-spm-${{ hashFiles('Tests/licensegenTests/fixtures/Package.resolved') }}
-    - name: Build
-      run: swift package clean && swift build -v
-    - name: Run tests
-      run: swift test -v
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        shell: bash
+        run: |
+          sudo xcode-select --switch "/Applications/Xcode_26.0.app"
+      - name: Cache package build dir
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
+      - name: Cache test package build dir
+        uses: actions/cache@v4
+        with:
+          path: Tests/licensegenTests/fixtures/.build
+          key: ${{ runner.os }}-fixtures-spm-${{ hashFiles('Tests/licensegenTests/fixtures/Package.resolved') }}
+      - name: Run tests
+        run: xcodebuild test -scheme LicenseGen-Package -destination 'platform=macOS' -clonedSourcePackagesDirPath .build
