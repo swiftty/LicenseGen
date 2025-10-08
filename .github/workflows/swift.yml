@@ -12,19 +12,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - name: Select Xcode
-        shell: bash
-        run: |
-          sudo xcode-select --switch "/Applications/Xcode_26.0.app"
-      - name: Cache package build dir
-        uses: actions/cache@v4
-        with:
-          path: .build
-          key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
+      - uses: ./.github/actions/setup
       - name: Cache test package build dir
         uses: actions/cache@v4
         with:
           path: Tests/licensegenTests/fixtures/.build
           key: ${{ runner.os }}-fixtures-spm-${{ hashFiles('Tests/licensegenTests/fixtures/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-fixtures-spm-${{ hashFiles('Tests/licensegenTests/fixtures/Package.resolved') }}
+            ${{ runner.os }}-fixtures-spm-
       - name: Run tests
         run: xcodebuild test -scheme LicenseGen-Package -destination 'platform=macOS' -clonedSourcePackagesDirPath .build

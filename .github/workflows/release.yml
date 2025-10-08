@@ -20,10 +20,7 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
-      - name: Select Xcode
-        shell: bash
-        run: |
-          sudo xcode-select --switch "/Applications/Xcode_26.0.app"
+      - uses: ./.github/actions/setup
       - uses: swiftty/swiftpm-artifactbundle-builder@v3
         with:
           use-xcode: true
