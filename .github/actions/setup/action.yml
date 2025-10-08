@@ -1,0 +1,23 @@
+name: Setup Build Environment
+description: Setup Xcode
+runs:
+  using: "composite"
+  steps:
+    - name: Cache package build dir
+      uses: actions/cache@v4
+      with:
+        path: .build
+        key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
+        restore-keys: |
+          ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
+          ${{ runner.os }}-spm-
+    - name: Git settings
+      shell: bash
+      run: |
+        # https://qiita.com/thaim/items/3d1a4d09ec4a7d8844ce
+        git config --local user.name "github-actions[bot]"
+        git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+    - name: Select Xcode
+      shell: bash
+      run: |
+        sudo xcode-select --switch "/Applications/Xcode_26.0.app"
