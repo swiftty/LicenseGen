@@ -8,7 +8,7 @@ on:
     inputs:
       version:
         type: choice
-        description: 'patch | minor | major'
+        description: "patch | minor | major"
         required: true
         options:
           - patch
@@ -17,62 +17,61 @@ on:
 
 jobs:
   build:
-    strategy:
-      matrix:
-        os: [ ubuntu-latest, macos-latest ]
-
-    runs-on: ${{ matrix.os }}
-
+    runs-on: macos-15
     steps:
-    - uses: actions/checkout@v4
-    - uses: swiftty/swiftpm-artifactbundle-builder@v3
-      with:
-        swift-version: '5.7'
-        depth: 1
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        shell: bash
+        run: |
+          sudo xcode-select --switch "/Applications/Xcode_26.0.app"
+      - uses: swiftty/swiftpm-artifactbundle-builder@v3
+        with:
+          use-xcode: true
+          depth: 1
 
   release:
-    needs: [ build ]
+    needs: [build]
 
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
-    - uses: swiftty/nextversion@v0.0.1
-      id: nextversion
-      with:
-        bump: ${{ github.event.inputs.version }}
-    - name: git settings
-      run: |
-        # https://qiita.com/thaim/items/3d1a4d09ec4a7d8844ce
-        git config --local user.name "github-actions[bot]"
-        git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
-    - uses: swiftty/swiftpm-artifactbundle-bundler@v3
-      id: bundler
-      with:
-        variants-version: ${{ steps.nextversion.outputs.next  }}
-    - name: update README
-      run: |
-        CHECKSUM=$(echo "${{ steps.bundler.outputs.checksums }}" | cut -f 1 -d " ")
+      - uses: actions/checkout@v4
+      - uses: swiftty/nextversion@v0.0.1
+        id: nextversion
+        with:
+          bump: ${{ github.event.inputs.version }}
+      - name: git settings
+        run: |
+          # https://qiita.com/thaim/items/3d1a4d09ec4a7d8844ce
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - uses: swiftty/swiftpm-artifactbundle-bundler@v3
+        id: bundler
+        with:
+          variants-version: ${{ steps.nextversion.outputs.next  }}
+      - name: update README
+        run: |
+          CHECKSUM=$(echo "${{ steps.bundler.outputs.checksums }}" | cut -f 1 -d " ")
 
-        sed -i -E 's/download\/(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)/download\/${{ steps.nextversion.outputs.next }}/g' README.md
-        sed -i -E "s/checksum: \"[a-z0-9]*\"/checksum: \"$CHECKSUM\"/g" README.md
+          sed -i -E 's/download\/(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)/download\/${{ steps.nextversion.outputs.next }}/g' README.md
+          sed -i -E "s/checksum: \"[a-z0-9]*\"/checksum: \"$CHECKSUM\"/g" README.md
 
-        git add README.md
-        git commit -m 'update README.md'
-        git push origin main
-    - uses: softprops/action-gh-release@v2
-      with:
-        generate_release_notes: true
-        tag_name: ${{ steps.nextversion.outputs.next }}
-        body: | 
-          ## Checksums
+          git add README.md
+          git commit -m 'update README.md'
+          git push origin main
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          tag_name: ${{ steps.nextversion.outputs.next }}
+          body: |
+            ## Checksums
 
-          - for `.binaryTarget(name:url:checksum:)`
+            - for `.binaryTarget(name:url:checksum:)`
 
-            ```
-            ${{ steps.bundler.outputs.checksums }}
-            ```
+              ```
+              ${{ steps.bundler.outputs.checksums }}
+              ```
 
-          ---
-        files: |
-          ${{ steps.bundler.outputs.path }}/**
+            ---
+          files: |
+            ${{ steps.bundler.outputs.path }}/**

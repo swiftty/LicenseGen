@@ -27,4 +27,4 @@ jobs:
           path: Tests/licensegenTests/fixtures/.build
           key: ${{ runner.os }}-fixtures-spm-${{ hashFiles('Tests/licensegenTests/fixtures/Package.resolved') }}
       - name: Run tests
-        run: xcodebuild test -scheme LicenseGen-Package -destination 'platform=macOS'
+        run: xcodebuild test -scheme LicenseGen-Package -destination 'platform=macOS' -clonedSourcePackagesDirPath .build
