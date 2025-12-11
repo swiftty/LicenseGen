@@ -4,7 +4,7 @@ runs:
   using: "composite"
   steps:
     - name: Cache package build dir
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: .build
         key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
