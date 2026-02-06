@@ -25,7 +25,7 @@ let package = Package(
 
         .package(
             url: "https://github.com/jpsim/Yams.git",
-            from: "6.2.0"),
+            from: "6.2.1"),
 
         .package(
             url: "https://github.com/apple/swift-log.git",
