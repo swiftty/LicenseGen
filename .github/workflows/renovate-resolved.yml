@@ -22,3 +22,4 @@ jobs:
           git add -u
           git commit -m "Update Package.resolved"
           git push origin HEAD
+
