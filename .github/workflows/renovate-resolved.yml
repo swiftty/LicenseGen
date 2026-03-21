@@ -18,7 +18,7 @@ jobs:
         run: |
           swift package resolve
       - name: Commit Package.resolved
-        run: |
-          git add -u
-          git commit -m "Update Package.resolved"
-          git push origin HEAD
+        uses: swiftty/gha-commit-if-changed@main
+        with:
+          run: make resolve
+          commit-message: "Update Package.resolved"

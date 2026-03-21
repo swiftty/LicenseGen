@@ -47,6 +47,8 @@ jobs:
         with:
           variants-version: ${{ steps.nextversion.outputs.next  }}
       - name: update README
+        permissions:
+          contents: write
         run: |
           CHECKSUM=$(echo "${{ steps.bundler.outputs.checksums }}" | cut -f 1 -d " ")
 
