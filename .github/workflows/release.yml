@@ -28,8 +28,9 @@ jobs:
 
   release:
     needs: [build]
-
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v6
@@ -47,8 +48,6 @@ jobs:
         with:
           variants-version: ${{ steps.nextversion.outputs.next  }}
       - name: update README
-        permissions:
-          contents: write
         run: |
           CHECKSUM=$(echo "${{ steps.bundler.outputs.checksums }}" | cut -f 1 -d " ")
 
