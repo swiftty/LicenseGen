@@ -19,7 +19,7 @@ jobs:
   build:
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - uses: swiftty/swiftpm-artifactbundle-builder@v4
         with:
@@ -33,7 +33,7 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: swiftty/nextversion@v0.0.1
         id: nextversion
         with:
