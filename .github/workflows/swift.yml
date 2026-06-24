@@ -14,7 +14,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - name: Cache test package build dir
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: Tests/licensegenTests/fixtures/.build
           key: ${{ runner.os }}-fixtures-spm-${{ hashFiles('Tests/licensegenTests/fixtures/Package.resolved') }}
